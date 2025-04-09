@@ -162,7 +162,7 @@ hashtree.pc: .FORCE
 	@echo 'Name: hashtree' >> hashtree.pc
 	@echo 'Description: Fast hashing of Merkle trees' >> hashtree.pc
 	@echo 'Version: '$(VERSION) >> hashtree.pc
-	@echo 'URL: https://github.com/prysmaticlabs/hashtree' >> hashtree.pc
+	@echo 'URL: https://github.com/OffchainLabs/hashtree' >> hashtree.pc
 	@echo 'LIBS: -L$${libdir} -lhashtree' >> hashtree.pc
 	@echo 'Cflags: -I$${includedir}'>> hashtree.pc
 

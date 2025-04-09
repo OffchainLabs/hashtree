@@ -1,4 +1,4 @@
-module github.com/prysmaticlabs/hashtree
+module github.com/OffchainLabs/hashtree
 
 go 1.22.2
 
