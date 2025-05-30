@@ -34,13 +34,12 @@ typedef void (*hashtree_hash_fcn)(unsigned char*, const unsigned char*, uint64_t
 
 /** Initialize the library to use the given hash tree function or perform
  * auto-detection based on the CPU if `NULL` is given.
- *
- * @returns 0 if auto-detection failed, non-0 otherwise
  */
-int hashtree_init(hashtree_hash_fcn override);
+void hashtree_init(hashtree_hash_fcn override);
 
 /* Undefined behavior if called without appropriate hardware support */
 void hashtree_hash(unsigned char* output, const unsigned char* input, uint64_t count);
+void hashtree_sha256_generic(unsigned char* output, const unsigned char* input, uint64_t count);
 
 #ifdef __aarch64__
 void hashtree_sha256_neon_x1(unsigned char* output, const unsigned char* input, uint64_t count);
@@ -59,4 +58,4 @@ void hashtree_sha256_shani_x2(unsigned char* output, const unsigned char* input,
 #ifdef __cplusplus
 }
 #endif
-#endif 
+#endif

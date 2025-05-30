@@ -103,6 +103,7 @@ ifeq ($(ARM), 1)
 	OBJ_LIST = $(OBJ_DIR)/sha256_armv8_neon_x4.o\
 		$(OBJ_DIR)/sha256_armv8_neon_x1.o\
 		$(OBJ_DIR)/sha256_armv8_crypto.o\
+		$(OBJ_DIR)/sha256_generic.o\
 		$(OBJ_DIR)/hashtree.o
 else
 	OBJ_LIST = $(OBJ_DIR)/sha256_shani.o\
@@ -111,6 +112,7 @@ else
 		$(OBJ_DIR)/sha256_avx_x4.o\
 		$(OBJ_DIR)/sha256_avx_x1.o\
 		$(OBJ_DIR)/sha256_sse_x1.o\
+		$(OBJ_DIR)/sha256_generic.o\
 		$(OBJ_DIR)/hashtree.o
 endif
 

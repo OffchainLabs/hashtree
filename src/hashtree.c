@@ -30,8 +30,8 @@ SOFTWARE.
 #endif
 #ifdef __aarch64__
 #ifndef __APPLE__
-#include <sys/auxv.h>
 #include <asm/hwcap.h>
+#include <sys/auxv.h>
 #endif
 #endif
 
@@ -63,13 +63,11 @@ static hashtree_hash_fcn hashtree_detect() {
     if (c & bit_AVX) {
         return &hashtree_sha256_sse_x1;
     }
-
-    return (hashtree_hash_fcn)0;
 #endif
 #ifdef __aarch64__
 #ifdef __APPLE__
-	return &hashtree_sha256_sha_x1;
-#else 
+    return &hashtree_sha256_sha_x1;
+#else
     long hwcaps = getauxval(AT_HWCAP);
     if (hwcaps & HWCAP_SHA2) {
         return &hashtree_sha256_sha_x1;
@@ -78,20 +76,17 @@ static hashtree_hash_fcn hashtree_detect() {
     if (hwcaps & HWCAP_ASIMD) {
         return &hashtree_sha256_neon_x4;
     }
-
-    return (hashtree_hash_fcn)0;
 #endif
 #endif
+    return &hashtree_sha256_generic;
 }
 
-int hashtree_init(hashtree_hash_fcn override) {
+void hashtree_init(hashtree_hash_fcn override) {
     if (override) {
         hash_ptr = override;
     } else {
         hash_ptr = hashtree_detect();
     }
-
-    return !!hash_ptr;
 }
 
 void hashtree_hash(unsigned char *output, const unsigned char *input, uint64_t count) {
