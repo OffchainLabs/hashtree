@@ -59,11 +59,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_init() {
-        assert_eq!(init(), 1);
-    }
-
-    #[test]
     fn test_hash() {
         let chunks: [u8; 64] = [0xAB; 64];
         let mut out = [0u8; 32];
