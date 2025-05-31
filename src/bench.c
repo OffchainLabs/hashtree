@@ -84,7 +84,7 @@ UBENCH_EX(armv8, crypto) {
 
 #endif
 
-UBENCH_EX(generic, sse_generic) {
+UBENCH_EX(generic, generic) {
     int *buffer = (int *)malloc(buffer_size);
     unsigned char digest[32];
     for (int i = 0; i < buffer_size / sizeof(int); i++) {

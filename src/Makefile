@@ -51,6 +51,7 @@ endif
 ifeq ($(OS),Windows_NT)
 	PLATFORM = Windows
 else
+	CFLAGS += -O3
 	ifeq ($(OS),Darwin)
 		PLATFORM = Darwin
 	else
