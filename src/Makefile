@@ -34,7 +34,7 @@ $(shell mkdir -p $(OBJ_DIR))
 $(shell mkdir -p $(LIB_DIR))
 
 ASFLAGS += -g -fpic
-CFLAGS +=  -g -Wall -Werror
+CFLAGS +=  -g -Wall -Werror -O3
 CLANG_ASFLAGS = -fno-integrated-as
 LDFLAGS += -L .
 testlibs = -lhashtree
@@ -51,7 +51,6 @@ endif
 ifeq ($(OS),Windows_NT)
 	PLATFORM = Windows
 else
-	CFLAGS += -O3
 	ifeq ($(OS),Darwin)
 		PLATFORM = Darwin
 	else
