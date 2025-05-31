@@ -590,8 +590,8 @@ hashtree_sha256_avx2_x8:
 .Lstart_routine:       
 	push 	rbp
 	mov     rbp,rsp
-	and 	rsp, ~31
 	sub	rsp, FRAMESZ
+	and 	rsp, ~31
 	mov	[R12], r12
 	mov	[R13], r13
 	mov	[R14], r14
