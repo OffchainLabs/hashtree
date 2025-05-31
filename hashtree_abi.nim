@@ -11,6 +11,7 @@ import std/[os, strutils]
 const srcDir = currentSourcePath.parentDir.replace('\\', '/') & "/src/"
 
 {.compile: srcDir & "hashtree.c".}
+{.compile: srcDir & "sha256_generic.c".}
 
 # The assember files use gnu/binutils-specific macros and lack mac support in
 # general
@@ -44,6 +45,6 @@ when
 type HashFcn* = proc(output: pointer, input: pointer, count: uint64) {.
   cdecl, noSideEffect, gcsafe, raises: [].}
 
-proc hashtree_init*(override: HashFcn): cint {.hashtreedecl.}
+proc hashtree_init*(override: HashFcn) {.hashtreedecl.}
 func hashtree_hash*(output: pointer, input: pointer, count: uint64) {.
   hashtreedecl.}
