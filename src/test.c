@@ -405,6 +405,10 @@ void test_hash_avx_8() {
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
     if (b & bit_AVX2) {
         unsigned char digest[512];
+        uintptr_t stack_ptr;
+        asm volatile("mov %%rsp, %0" : "=r"(stack_ptr));
+        int is_stack_aligned = (stack_ptr % 16) == 0;  // Windows requires 16-byte alignment before call
+        TEST_CHECK(is_stack_aligned);
         hashtree_sha256_avx2_x8(digest, test_16_block, 16);
         TEST_CHECK(digests_equal(digest, test_16_digests, sizeof(digest)));
         TEST_DUMP("Expected: ", test_16_digests, sizeof(digest));
