@@ -589,6 +589,9 @@ hashtree_sha256_avx2_x8:
         ret
 .Lstart_routine:       
 	push 	rbp
+#ifdef __WIN64__
+	push rsi
+#endif
 	mov     rbp,rsp
 	and 	rsp, ~31
 	sub	rsp, FRAMESZ
@@ -774,6 +777,9 @@ hashtree_sha256_avx2_x8:
 	mov	r15,[R15]
 
 	mov     rsp,rbp
+#ifdef __WIN64__
+	pop rsi 
+#endif
 	pop     rbp
         jmp     hashtree_sha256_avx_x4
 
