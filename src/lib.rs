@@ -59,6 +59,11 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_init() {
+        init(); // test passes if this doesn't panic
+    }
+
+    #[test]
     fn test_hash() {
         let chunks: [u8; 64] = [0xAB; 64];
         let mut out = [0u8; 32];
