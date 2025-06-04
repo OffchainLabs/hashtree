@@ -64,6 +64,9 @@ static hashtree_hash_fcn hashtree_detect() {
         return &hashtree_sha256_sse_x1;
     }
 #endif
+#ifdef __riscv
+    return &hashtree_sha256_riscv_x1;
+#endif
 #ifdef __aarch64__
 #ifdef __APPLE__
     return &hashtree_sha256_sha_x1;
