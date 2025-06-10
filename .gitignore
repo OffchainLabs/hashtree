@@ -3,3 +3,4 @@ target
 build
 tests
 .gitignore
+.vscode
