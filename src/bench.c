@@ -248,20 +248,6 @@ UBENCH_EX(shani, shani_one_at_time) {
 }
 #endif
 #ifdef __riscv
-UBENCH_EX(riscv, riscv_x1_one_at_time) {
-    int * buffer  = (int *) malloc(buffer_size);
-    unsigned char digest[32];
-    for (int i = 0; i < buffer_size/sizeof(int); i++) {
-        buffer[i] = rand();
-    }
-    UBENCH_DO_BENCHMARK() {
-        for (int i = 0; i < buffer_size; i+=64) {
-            hashtree_sha256_riscv_x1(digest, (unsigned char *)(buffer+i/sizeof(int)), 1);
-        }
-    }
-    free(buffer);
-}
-
 UBENCH_EX(riscv, riscv_x1) {
     int * buffer  = (int *) malloc(buffer_size);
     unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
@@ -274,20 +260,6 @@ UBENCH_EX(riscv, riscv_x1) {
     free(buffer);
     free(digest);
 }
-UBENCH_EX(riscv, riscv_zbb_x1_one_at_time) {
-    int * buffer  = (int *) malloc(buffer_size);
-    unsigned char digest[32];
-    for (int i = 0; i < buffer_size/sizeof(int); i++) {
-        buffer[i] = rand();
-    }
-    UBENCH_DO_BENCHMARK() {
-        for (int i = 0; i < buffer_size; i+=64) {
-            hashtree_sha256_riscv_zbb_x1(digest, (unsigned char *)(buffer+i/sizeof(int)), 1);
-        }
-    }
-    free(buffer);
-}
-
 UBENCH_EX(riscv, riscv_zbb_x1) {
     int * buffer  = (int *) malloc(buffer_size);
     unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
@@ -300,20 +272,6 @@ UBENCH_EX(riscv, riscv_zbb_x1) {
     free(buffer);
     free(digest);
 }
-UBENCH_EX(riscv, riscv_crypto_one_at_time) {
-    int * buffer  = (int *) malloc(buffer_size);
-    unsigned char digest[32];
-    for (int i = 0; i < buffer_size/sizeof(int); i++) {
-        buffer[i] = rand();
-    }
-    UBENCH_DO_BENCHMARK() {
-        for (int i = 0; i < buffer_size; i+=64) {
-            hashtree_sha256_riscv_crypto(digest, (unsigned char *)(buffer+i/sizeof(int)), 1);
-        }
-    }
-    free(buffer);
-}
-
 UBENCH_EX(riscv, riscv_crypto) {
     int * buffer  = (int *) malloc(buffer_size);
     unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
