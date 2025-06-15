@@ -101,6 +101,8 @@ ifeq ($(ARM), 1)
 		$(OBJ_DIR)/sha256_generic.o\
 		$(OBJ_DIR)/hashtree.o
 else ifeq ($(RISCV), 1)
+	CFLAGS += -march=rv64gc_zbb_zk
+	ASFLAGS += -march=rv64gc_zbb_zk
 	OBJ_LIST = $(OBJ_DIR)/sha256_riscv_x1.o\
 		   $(OBJ_DIR)/sha256_riscv_zbb_x1.o\
 		   $(OBJ_DIR)/sha256_riscv_crypto.o\
