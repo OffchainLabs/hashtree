@@ -74,8 +74,7 @@ void hashtree_sha256_generic(unsigned char* output, const unsigned char* input, 
         uint32_t g = init[6];
         uint32_t h = init[7];
         for (int i = 0; i < 16; i++) {
-            int j = i * 4;
-            w[i] = be32(&input[k * 64 + j]);
+            w[i] = be32(&input[k * 64 + (i << 2)]);
             uint32_t t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i];
             uint32_t t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
             h = g;
@@ -88,24 +87,51 @@ void hashtree_sha256_generic(unsigned char* output, const unsigned char* input, 
             a = t1 + t2;
         }
 
-        // Last 48 rounds
-        for (int i = 16; i < 64; i++) {
+        // Last 48 rounds with loop unrolling (4 rounds at a time)
+        for (int i = 16; i < 64; i += 4) {
+            // Round i
             uint32_t v1 = w[(i - 2) & 0xF];
             uint32_t t1 = rotr(v1, 17) ^ rotr(v1, 19) ^ (v1 >> 10);
             uint32_t v2 = w[(i - 15) & 0xF];
             uint32_t t2 = rotr(v2, 7) ^ rotr(v2, 18) ^ (v2 >> 3);
             w[i & 0xF] += t1 + w[(i - 7) & 0xF] + t2;
-
+            
             t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i & 0xF];
             t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
-            h = g;
-            g = f;
-            f = e;
-            e = d + t1;
-            d = c;
-            c = b;
-            b = a;
-            a = t1 + t2;
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+1
+            v1 = w[(i + 1 - 2) & 0xF];
+            t1 = rotr(v1, 17) ^ rotr(v1, 19) ^ (v1 >> 10);
+            v2 = w[(i + 1 - 15) & 0xF];
+            t2 = rotr(v2, 7) ^ rotr(v2, 18) ^ (v2 >> 3);
+            w[(i + 1) & 0xF] += t1 + w[(i + 1 - 7) & 0xF] + t2;
+            
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i + 1] + w[(i + 1) & 0xF];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+2
+            v1 = w[(i + 2 - 2) & 0xF];
+            t1 = rotr(v1, 17) ^ rotr(v1, 19) ^ (v1 >> 10);
+            v2 = w[(i + 2 - 15) & 0xF];
+            t2 = rotr(v2, 7) ^ rotr(v2, 18) ^ (v2 >> 3);
+            w[(i + 2) & 0xF] += t1 + w[(i + 2 - 7) & 0xF] + t2;
+            
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i + 2] + w[(i + 2) & 0xF];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+3
+            v1 = w[(i + 3 - 2) & 0xF];
+            t1 = rotr(v1, 17) ^ rotr(v1, 19) ^ (v1 >> 10);
+            v2 = w[(i + 3 - 15) & 0xF];
+            t2 = rotr(v2, 7) ^ rotr(v2, 18) ^ (v2 >> 3);
+            w[(i + 3) & 0xF] += t1 + w[(i + 3 - 7) & 0xF] + t2;
+            
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i + 3] + w[(i + 3) & 0xF];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
         }
         // Add original digest
         a += init[0];
@@ -126,17 +152,27 @@ void hashtree_sha256_generic(unsigned char* output, const unsigned char* input, 
         uint32_t h5 = f;
         uint32_t h6 = g;
         uint32_t h7 = h;
-        for (int i = 0; i < 64; i++) {
+        // Padding rounds with loop unrolling (4 rounds at a time)
+        for (int i = 0; i < 64; i += 4) {
+            // Round i
             uint32_t t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + P[i];
             uint32_t t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
-            h = g;
-            g = f;
-            f = e;
-            e = d + t1;
-            d = c;
-            c = b;
-            b = a;
-            a = t1 + t2;
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+1
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + P[i + 1];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+2
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + P[i + 2];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+
+            // Round i+3
+            t1 = h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + P[i + 3];
+            t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            h = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
         }
 
         h0 += a;
@@ -147,37 +183,14 @@ void hashtree_sha256_generic(unsigned char* output, const unsigned char* input, 
         h5 += f;
         h6 += g;
         h7 += h;
-        output[k * 32 + 0] = (h0 >> 24) & 0xFF;
-        output[k * 32 + 1] = (h0 >> 16) & 0xFF;
-        output[k * 32 + 2] = (h0 >> 8) & 0xFF;
-        output[k * 32 + 3] = h0 & 0xFF;
-        output[k * 32 + 4] = (h1 >> 24) & 0xFF;
-        output[k * 32 + 5] = (h1 >> 16) & 0xFF;
-        output[k * 32 + 6] = (h1 >> 8) & 0xFF;
-        output[k * 32 + 7] = h1 & 0xFF;
-        output[k * 32 + 8] = (h2 >> 24) & 0xFF;
-        output[k * 32 + 9] = (h2 >> 16) & 0xFF;
-        output[k * 32 + 10] = (h2 >> 8) & 0xFF;
-        output[k * 32 + 11] = h2 & 0xFF;
-        output[k * 32 + 12] = (h3 >> 24) & 0xFF;
-        output[k * 32 + 13] = (h3 >> 16) & 0xFF;
-        output[k * 32 + 14] = (h3 >> 8) & 0xFF;
-        output[k * 32 + 15] = h3 & 0xFF;
-        output[k * 32 + 16] = (h4 >> 24) & 0xFF;
-        output[k * 32 + 17] = (h4 >> 16) & 0xFF;
-        output[k * 32 + 18] = (h4 >> 8) & 0xFF;
-        output[k * 32 + 19] = h4 & 0xFF;
-        output[k * 32 + 20] = (h5 >> 24) & 0xFF;
-        output[k * 32 + 21] = (h5 >> 16) & 0xFF;
-        output[k * 32 + 22] = (h5 >> 8) & 0xFF;
-        output[k * 32 + 23] = h5 & 0xFF;
-        output[k * 32 + 24] = (h6 >> 24) & 0xFF;
-        output[k * 32 + 25] = (h6 >> 16) & 0xFF;
-        output[k * 32 + 26] = (h6 >> 8) & 0xFF;
-        output[k * 32 + 27] = h6 & 0xFF;
-        output[k * 32 + 28] = (h7 >> 24) & 0xFF;
-        output[k * 32 + 29] = (h7 >> 16) & 0xFF;
-        output[k * 32 + 30] = (h7 >> 8) & 0xFF;
-        output[k * 32 + 31] = h7 & 0xFF;
+        unsigned char* out = &output[k * 32];
+        out[0] = h0 >> 24; out[1] = h0 >> 16; out[2] = h0 >> 8; out[3] = h0;
+        out[4] = h1 >> 24; out[5] = h1 >> 16; out[6] = h1 >> 8; out[7] = h1;
+        out[8] = h2 >> 24; out[9] = h2 >> 16; out[10] = h2 >> 8; out[11] = h2;
+        out[12] = h3 >> 24; out[13] = h3 >> 16; out[14] = h3 >> 8; out[15] = h3;
+        out[16] = h4 >> 24; out[17] = h4 >> 16; out[18] = h4 >> 8; out[19] = h4;
+        out[20] = h5 >> 24; out[21] = h5 >> 16; out[22] = h5 >> 8; out[23] = h5;
+        out[24] = h6 >> 24; out[25] = h6 >> 16; out[26] = h6 >> 8; out[27] = h6;
+        out[28] = h7 >> 24; out[29] = h7 >> 16; out[30] = h7 >> 8; out[31] = h7;
     }
 }
