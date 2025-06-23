@@ -978,14 +978,9 @@ hashtree_sha256_avx512_x16:
 	jb		hashtree_sha256_avx2_x8
 	
 	# Prefetch data 16 blocks ahead (16*64 = 1024 bytes)
-	# Optimized multi-level prefetching for AVX-512
 	cmp		COUNT, 32
 	jb		.Lskip_prefetch_x16
-	prefetcht1 [DATA_PTR + 1024]      # T1 for L2 cache
-	cmp		COUNT, 48
-	jb		.Lskip_prefetch_x16
-	prefetcht1 [DATA_PTR + 2048]      # Further ahead for larger batches
-	prefetcht2 [DATA_PTR + 3072]      # T2 for L3 cache
+	prefetchnta [DATA_PTR + 1024]
 .Lskip_prefetch_x16:
 	
 	# Load pre-transposed digest
