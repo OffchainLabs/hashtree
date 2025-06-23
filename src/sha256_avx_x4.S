@@ -373,6 +373,12 @@ hashtree_sha256_avx_x4:
 	cmp 	NUM_BLKS, 4
 	jl 	.Lsha256_4_avx_epilog
 
+	# Prefetch data 4 blocks ahead (4*64 = 256 bytes)
+	cmp	NUM_BLKS, 8
+	jb	.Lskip_prefetch_x4
+	prefetchnta [DATA_PTR + 256]
+.Lskip_prefetch_x4:
+
 	xor	ROUND, ROUND
 
 	// Load the pre-transposed incoming digest.
