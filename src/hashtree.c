@@ -60,6 +60,7 @@ static int is_amd_cpu() {
     return 0;
 }
 
+
 static hashtree_hash_fcn hashtree_detect() {
 #ifdef __x86_64__
     uint32_t a = 0, b = 0, c = 0, d = 0;
@@ -109,20 +110,52 @@ static hashtree_hash_fcn hashtree_detect() {
     }
 #endif
 #ifdef __aarch64__
+    /* ARM64/AArch64 detection */
 #ifdef __APPLE__
+    /* Apple Silicon always has crypto extensions */
     return &hashtree_sha256_sha_x1;
 #else
+    /* Linux ARM64 - check capabilities */
     long hwcaps = getauxval(AT_HWCAP);
     if (hwcaps & HWCAP_SHA2) {
+        /* ARM crypto extensions available */
         return &hashtree_sha256_sha_x1;
     }
 
     if (hwcaps & HWCAP_ASIMD) {
+        /* NEON SIMD available */
         return &hashtree_sha256_neon_x4;
     }
+    /* Fallback to generic if no SIMD available */
 #endif
 #endif
+    
+    /* Ultimate fallback for any undetected architecture:
+     * - Non-x86_64 and non-ARM64 architectures
+     * - x86_64 without SSE2 (extremely rare)
+     * - ARM without NEON (older 32-bit ARM)
+     * - Any future architectures not yet supported
+     * The generic implementation uses pure C code that works everywhere */
     return &hashtree_sha256_generic;
+}
+
+// Helper function to get the name of the current implementation
+const char* hashtree_get_impl_name() {
+    if (hash_ptr == &hashtree_sha256_generic) return "generic";
+#ifdef __x86_64__
+    if (hash_ptr == &hashtree_sha256_sse_x1) return "sse_x1";
+    if (hash_ptr == &hashtree_sha256_avx_x1) return "avx_x1";
+    if (hash_ptr == &hashtree_sha256_avx_x4) return "avx_x4";
+    if (hash_ptr == &hashtree_sha256_avx2_x8) return "avx2_x8";
+    if (hash_ptr == &hashtree_sha256_avx512_x16) return "avx512_x16";
+    if (hash_ptr == &hashtree_sha256_shani_x2) return "shani_x2";
+#endif
+#ifdef __aarch64__
+    if (hash_ptr == &hashtree_sha256_sha_x1) return "arm_sha_x1";
+    if (hash_ptr == &hashtree_sha256_neon_x1) return "arm_neon_x1";
+    if (hash_ptr == &hashtree_sha256_neon_x4) return "arm_neon_x4";
+#endif
+    return "unknown";
 }
 
 void hashtree_init(hashtree_hash_fcn override) {
