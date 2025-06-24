@@ -90,6 +90,15 @@ Copyright (c) 2012-2023, Intel Corporation
 	shld        \src, \src, (32-\shf)
 .endm
 
+# Add efficient prefetch macros
+.macro PREFETCH_DATA offset
+	prefetchnta	[DATA_PTR + \offset]
+.endm
+
+.macro PREFETCH_CONSTANTS offset
+	prefetchnta	[TBL + \offset]
+.endm
+
 // COPY_XMM_AND_BSWAP xmm, [mem], byte_flip_mask
 // Load xmm with mem and byte swap each dword
 .macro COPY_XMM_AND_BSWAP dst, src, msk
@@ -172,49 +181,41 @@ Copyright (c) 2012-2023, Intel Corporation
 .macro FOUR_ROUNDS_AND_SCHED
 		//// compute s0 four at a time and s1 two at a time
 		//// compute W[-16] + W[-7] 4 at a time
-		//vmovdqa	XTMP0, X3
-	mov	y0, e_		// y0 = e
-	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-	mov	y1, a_		// y1 = a
+		// Optimize with better SIMD/CPU interleaving
 		vpalignr	XTMP0, X3, X2, 4	// XTMP0 = W[-7]
+		vpalignr	XTMP1, X1, X0, 4	// XTMP1 = W[-15]
+		vpaddd	XTMP0, XTMP0, X0	// XTMP0 = W[-7] + W[-16]
+		
+		// Start CPU operations while SIMD is working
+	mov	y0, e_		// y0 = e
+		vpsrld	XTMP2, XTMP1, 7
+	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
+		vpslld	XTMP3, XTMP1, (32-7)
+	mov	y1, a_		// y1 = a
+		vpor	XTMP3, XTMP3, XTMP2	// XTMP3 = W[-15] ror 7
 	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
 	xor	y0, e_		// y0 = e ^ (e >> (25-11))
 	mov	y2, f_		// y2 = f
 	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-		//vmovdqa	XTMP1, X1
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
+	xor	y1, a_		// y1 = a ^ (a >> (22-13))
 	xor	y2, g_		// y2 = f^g
-		vpaddd	XTMP0, XTMP0, X0	// XTMP0 = W[-7] + W[-16]
 	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
 	and	y2, e_		// y2 = (f^g)&e
 	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-		//// compute s0
-		vpalignr	XTMP1, X1, X0, 4	// XTMP1 = W[-15]
 	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
 	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
 	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
-
 	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
 	add	y2, y0		// y2 = S1 + CH
 	add	y2, [rsp + 0*4]	// y2 = k + w + S1 + CH
-
 	mov	y0, a_		// y0 = a
 	add	h_, y2		// h = h + S1 + CH + k + w
 	mov	y2, a_		// y2 = a
-
-		vpsrld	XTMP2, XTMP1, 7
-
 	or	y0, c_		// y0 = a|c
 	add	d_, h_		// d = d + h + S1 + CH + k + w
 	and	y2, c_		// y2 = a&c
-
-		vpslld	XTMP3, XTMP1, (32-7)
-
 	and	y0, b_		// y0 = (a|c)&b
 	add	h_, y1		// h = h + S1 + CH + k + w + S0
-
-		vpor	XTMP3, XTMP3, XTMP2	// XTMP1 = W[-15] MY_ROR 7
-
 	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
 	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
 
@@ -458,9 +459,11 @@ hashtree_sha256_avx_x1:
 
 	lea	TBL,[rip + .LK256]
 
-	//; byte swap first 16 dwords
+	//; byte swap first 16 dwords with prefetching
+	PREFETCH_DATA	64		// prefetch next block
 	COPY_XMM_AND_BSWAP	X0, [DATA_PTR + 0*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X1, [DATA_PTR + 1*16], BYTE_FLIP_MASK
+	PREFETCH_DATA	128		// prefetch further ahead
 	COPY_XMM_AND_BSWAP	X2, [DATA_PTR + 2*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X3, [DATA_PTR + 3*16], BYTE_FLIP_MASK
 
@@ -469,6 +472,7 @@ hashtree_sha256_avx_x1:
 .align 32
 	vpaddd	XFER, X0, [TBL + 0*16]
 	vmovdqa	[rsp], XFER
+	PREFETCH_CONSTANTS	256	// prefetch K constants ahead
 	FOUR_ROUNDS_AND_SCHED
 
 	vpaddd	XFER, X0, [TBL + 1*16]

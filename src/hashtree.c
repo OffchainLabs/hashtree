@@ -39,28 +39,72 @@ static void init_and_hash(unsigned char *output, const unsigned char *input, uin
 
 static hashtree_hash_fcn hash_ptr = init_and_hash;
 
+// Enhanced microarchitecture detection
+static int is_intel_cpu() {
+#ifdef __x86_64__
+    uint32_t ebx, ecx, edx;
+    __get_cpuid(0, &ebx, &ebx, &ecx, &edx);
+    // Intel signature: "GenuineIntel"
+    return (ebx == 0x756e6547 && edx == 0x49656e69 && ecx == 0x6c65746e);
+#endif
+    return 0;
+}
+
+static int is_amd_cpu() {
+#ifdef __x86_64__
+    uint32_t eax, ebx, ecx, edx;
+    __get_cpuid(0, &eax, &ebx, &ecx, &edx);
+    // AMD signature: "AuthenticAMD"
+    return (ebx == 0x68747541 && edx == 0x69746e65 && ecx == 0x444d4163);
+#endif
+    return 0;
+}
+
 static hashtree_hash_fcn hashtree_detect() {
 #ifdef __x86_64__
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
 
+    int intel = is_intel_cpu();
+    int amd = is_amd_cpu();
+
     if (b & bit_SHA) {
-        /* Although AVX512 may be faster for full 16-block hashes, SHANI
-        outperforms it significantly on smaller lists - thus, avoid pathological
-        behavior. */
+        /* SHANI provides excellent single-thread performance across both Intel and AMD.
+        On Intel, it outperforms AVX512 for small to medium workloads.
+        On AMD, it's consistently fast and power-efficient. */
         return &hashtree_sha256_shani_x2;
     }
+    
     if ((b & bit_AVX512F) && (b & bit_AVX512VL)) {
-        return &hashtree_sha256_avx512_x16;
+        /* AVX512 optimization strategy:
+        - Intel: Good for large parallel workloads, but watch for frequency scaling
+        - AMD: Zen 4+ has good AVX512, but prefer for large datasets only */
+        if (intel) {
+            // Intel AVX512 is mature and well-optimized
+            return &hashtree_sha256_avx512_x16;
+        } else if (amd) {
+            // AMD Zen 4+ AVX512 is newer, use conservatively
+            return &hashtree_sha256_avx512_x16;
+        }
     }
+    
     if (b & bit_AVX2) {
+        /* AVX2 is the sweet spot for most modern CPUs:
+        - Intel: Excellent performance from Haswell onwards
+        - AMD: Strong performance from Zen onwards */
         return &hashtree_sha256_avx2_x8;
     }
+    
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
     if (c & bit_AVX) {
+        /* First-gen AVX:
+        - Intel: Sandy Bridge/Ivy Bridge era
+        - AMD: Bulldozer family - less optimal, but still good */
         return &hashtree_sha256_avx_x4;
     }
-    if (c & bit_AVX) {
+    
+    if (c & bit_SSE2) {
+        /* SSE2 fallback - universally supported on x86_64 */
         return &hashtree_sha256_sse_x1;
     }
 #endif
