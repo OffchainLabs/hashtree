@@ -32,10 +32,22 @@ LIB_DIR := $(OUT_DIR)/lib
 # Ensure these directories exist
 $(shell mkdir -p $(OBJ_DIR))
 $(shell mkdir -p $(LIB_DIR))
+$(shell mkdir -p $(OUT_DIR)/profile-data)
 
 ASFLAGS += -g -fpic
-CFLAGS +=  -g -Wall -Werror -O3
+# Aggressive optimization flags for maximum performance
+CFLAGS +=  -g -Wall -Werror -O3 -march=native -mtune=native -flto -ffast-math \
+           -funroll-loops -fprefetch-loop-arrays -ftree-vectorize \
+           -fomit-frame-pointer -finline-functions \
+           -fgcse-after-reload \
+           -fprofile-generate=$(OUT_DIR)/profile-data
 CLANG_ASFLAGS = -fno-integrated-as
+# Profile-guided optimization flags (will be used in second pass)
+PGO_CFLAGS = -g -Wall -Werror -O3 -march=native -mtune=native -flto -ffast-math \
+             -funroll-loops -fprefetch-loop-arrays -ftree-vectorize \
+             -fomit-frame-pointer -finline-functions \
+             -fgcse-after-reload \
+             -fprofile-use=$(OUT_DIR)/profile-data -fprofile-correction
 LDFLAGS += -L .
 testlibs = -lhashtree
 benchlibs = -lhashtree -lm
@@ -169,6 +181,27 @@ hashtree.pc: .FORCE
 	@echo 'Cflags: -I$${includedir}'>> hashtree.pc
 
 ifneq ($(PLATFORM),Windows)
+# Profile-guided optimization targets
+.PHONY: pgo pgo-generate pgo-use pgo-clean
+
+pgo: pgo-clean pgo-generate pgo-use
+
+pgo-generate: CFLAGS = $(shell echo '$(CFLAGS)' | sed 's/-fprofile-use[^ ]*//g')
+pgo-generate: $(libname) bench
+	@echo "Running profile generation..."
+	$(OUT_DIR)/bench
+
+pgo-use: CFLAGS = $(PGO_CFLAGS)
+pgo-use: pgo-clean-objects $(libname)
+	@echo "Built with profile-guided optimization"
+
+pgo-clean:
+	-rm -rf $(OUT_DIR)/profile-data/*
+	-$(MAKE) clean
+
+pgo-clean-objects:
+	-rm -f $(OBJ_LIST)
+
 install: $(libname) hashtree.pc
 	install -d $(DESTDIR)$(PREFIX)/lib
 	install -m 644 $(libname) $(DESTDIR)$(PREFIX)/lib/ 
