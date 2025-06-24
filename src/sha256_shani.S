@@ -135,6 +135,13 @@ hashtree_sha256_shani_x2:
         cmp             NUM_BLKS, 2
 	jl		.Lsha256_shani_x1
 
+	# Prefetch data for better cache usage
+	# Prefetch 4 blocks ahead (256 bytes) for optimal L2 cache usage
+	cmp		NUM_BLKS, 4
+	jb		.Lskip_prefetch
+	prefetchnta	[DATA_PTR + 256]
+.Lskip_prefetch:
+
         movdqa          STATE0, [rip + .LDIGEST]
         movdqa          STATE1, [rip + .LDIGEST + 16]
 
@@ -166,15 +173,15 @@ hashtree_sha256_shani_x2:
 		sha256rnds2	STATE1, STATE0
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0, STATE1
-	sha256msg1	MSGTMP0, MSGTMP1
 	movdqu		MSG, [DATA_PTR + 5*16]
 	pshufb		MSG, SHUF_MASK
 	movdqa		MSGTMP1b, MSG
 		paddd		MSG, [SHA256CONSTANTS + 1*16]
 		sha256rnds2	STATE1b, STATE0b
+		sha256msg1	MSGTMP0, MSGTMP1   # Moved earlier to reduce dependency stalls
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0b, STATE1b
-	sha256msg1	MSGTMP0b, MSGTMP1b
+		sha256msg1	MSGTMP0b, MSGTMP1b
 	# Rounds 8-11
 	movdqu		MSG, [DATA_PTR + 2*16]
 	pshufb		MSG, SHUF_MASK
@@ -183,15 +190,15 @@ hashtree_sha256_shani_x2:
 		sha256rnds2	STATE1, STATE0
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0, STATE1
-	sha256msg1	MSGTMP1, MSGTMP2
 	movdqu		MSG, [DATA_PTR + 6*16]
 	pshufb		MSG, SHUF_MASK
 	movdqa		MSGTMP2b, MSG
 		paddd		MSG, [SHA256CONSTANTS + 2*16]
 		sha256rnds2	STATE1b, STATE0b
+		sha256msg1	MSGTMP1, MSGTMP2   # Moved earlier to reduce dependency stalls
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0b, STATE1b
-	sha256msg1	MSGTMP1b, MSGTMP2b
+		sha256msg1	MSGTMP1b, MSGTMP2b
 	# Rounds 12-15
 	movdqu		MSG, [DATA_PTR + 3*16]
 	pshufb		MSG, SHUF_MASK

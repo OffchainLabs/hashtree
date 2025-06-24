@@ -977,6 +977,12 @@ hashtree_sha256_avx512_x16:
 	cmp		COUNT, 16
 	jb		hashtree_sha256_avx2_x8
 	
+	# Prefetch data 16 blocks ahead (16*64 = 1024 bytes)
+	cmp		COUNT, 32
+	jb		.Lskip_prefetch_x16
+	prefetchnta	[DATA_PTR + 1024]
+.Lskip_prefetch_x16:
+	
 	# Load pre-transposed digest
 	vmovdqa32	A, [DIGEST + 0*64]
 	vmovdqa32	B, [DIGEST + 1*64]
