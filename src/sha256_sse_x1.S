@@ -166,80 +166,83 @@ Copied parts are
 		# compute s0 four at a time and s1 two at a time
 		# compute W[-16] + W[-7] 4 at a time
 		movdqa	XTMP0, X3
-	mov	y0, e		// y0 = e
-	ror	y0, (25-11)	// y0 = e >> (25-11)
-	mov	y1, a		// y1 = a
 		palignr	XTMP0, X2, 4	// XTMP0 = W[-7]
+		movdqa	XTMP1, X1
+		palignr	XTMP1, X0, 4	// XTMP1 = W[-15]
+		paddd	XTMP0, X0	// XTMP0 = W[-7] + W[-16]
+		
+		# Overlap CPU and SIMD operations for better scheduling
+	mov	y0, e		// y0 = e
+		movdqa	XTMP2, XTMP1	// XTMP2 = W[-15]
+	mov	y1, a		// y1 = a
+		movdqa	XTMP3, XTMP1	// XTMP3 = W[-15]
+	ror	y0, (25-11)	// y0 = e >> (25-11)
+		pslld	XTMP1, (32-7)
 	ror	y1, (22-13)	// y1 = a >> (22-13)
+		psrld	XTMP2, 7
 	xor	y0, e		// y0 = e ^ (e >> (25-11))
+		por	XTMP1, XTMP2	// XTMP1 = W[-15] ror 7
 	mov	y2, f		// y2 = f
 	ror	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-		movdqa	XTMP1, X1
-	xor	y1, a		// y1 = a ^ (a >> (22-13)
+	xor	y1, a		// y1 = a ^ (a >> (22-13))
 	xor	y2, g		// y2 = f^g
-		paddd	XTMP0, X0	// XTMP0 = W[-7] + W[-16]
 	xor	y0, e		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
 	and	y2, e		// y2 = (f^g)&e
 	ror	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-		# compute s0
-		palignr	XTMP1, X0, 4	// XTMP1 = W[-15]
 	xor	y1, a		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
 	ror	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
 	xor	y2, g		// y2 = CH = ((f^g)&e)^g
-		movdqa	XTMP2, XTMP1	// XTMP2 = W[-15]
 	ror	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
 	add	y2, y0		// y2 = S1 + CH
 	add	y2, [rsp + 0*4]	// y2 = k + w + S1 + CH
-		movdqa	XTMP3, XTMP1	// XTMP3 = W[-15]
 	mov	y0, a		// y0 = a
 	add	h, y2		// h = h + S1 + CH + k + w
 	mov	y2, a		// y2 = a
-		pslld	XTMP1, (32-7)
 	or	y0, c		// y0 = a|c
 	add	d, h		// d = d + h + S1 + CH + k + w
 	and	y2, c		// y2 = a&c
-		psrld	XTMP2, 7
 	and	y0, b		// y0 = (a|c)&b
 	add	h, y1		// h = h + S1 + CH + k + w + S0
-		por	XTMP1, XTMP2	// XTMP1 = W[-15] ror 7
 	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
 	add	h, y0		// h = h + S1 + CH + k + w + S0 + MAJ
 
 ROTATE_ARGS
+		# Continue with second round - better scheduling
 		movdqa	XTMP2, XTMP3	// XTMP2 = W[-15]
+		movdqa	XTMP4, XTMP3	// XTMP4 = W[-15]
+		pslld	XTMP3, (32-18)
+		psrld	XTMP2, 18
+		psrld	XTMP4, 3	// XTMP4 = W[-15] >> 3
+		pxor	XTMP1, XTMP3
+		pxor	XTMP1, XTMP2	// XTMP1 = W[-15] ror 7 ^ W[-15] ror 18
+		pxor	XTMP1, XTMP4	// XTMP1 = s0
+		
 	mov	y0, e		// y0 = e
 	mov	y1, a		// y1 = a
-		movdqa	XTMP4, XTMP3	// XTMP4 = W[-15]
 	ror	y0, (25-11)	// y0 = e >> (25-11)
 	xor	y0, e		// y0 = e ^ (e >> (25-11))
 	mov	y2, f		// y2 = f
 	ror	y1, (22-13)	// y1 = a >> (22-13)
-		pslld	XTMP3, (32-18)
-	xor	y1, a		// y1 = a ^ (a >> (22-13)
+	xor	y1, a		// y1 = a ^ (a >> (22-13))
 	ror	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
 	xor	y2, g		// y2 = f^g
-		psrld	XTMP2, 18
 	ror	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
 	xor	y0, e		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
 	and	y2, e		// y2 = (f^g)&e
 	ror	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
-		pxor	XTMP1, XTMP3
 	xor	y1, a		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
 	xor	y2, g		// y2 = CH = ((f^g)&e)^g
-		psrld	XTMP4, 3	// XTMP4 = W[-15] >> 3
 	add	y2, y0		// y2 = S1 + CH
-	add	y2, [rsp + 1*4]	// y2 = k + w + S1 + CH
 	ror	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
-		pxor	XTMP1, XTMP2	// XTMP1 = W[-15] ror 7 ^ W[-15] ror 18
+	add	y2, [rsp + 1*4]	// y2 = k + w + S1 + CH
 	mov	y0, a		// y0 = a
 	add	h, y2		// h = h + S1 + CH + k + w
 	mov	y2, a		// y2 = a
-		pxor	XTMP1, XTMP4	// XTMP1 = s0
+		# compute low s1
+		pshufd	XTMP2, X3, 0b11111010	// XTMP2 = W[-2] {BBAA}
 	or	y0, c		// y0 = a|c
 	add	d, h		// d = d + h + S1 + CH + k + w
 	and	y2, c		// y2 = a&c
-		# compute low s1
-		pshufd	XTMP2, X3, 0b11111010	// XTMP2 = W[-2] {BBAA}
 	and	y0, b		// y0 = (a|c)&b
 	add	h, y1		// h = h + S1 + CH + k + w + S0
 		paddd	XTMP0, XTMP1	// XTMP0 = W[-16] + W[-7] + s0
@@ -402,7 +405,6 @@ hashtree_sha256_sse_x1:
         cmp     OUTPUT_PTR, count
         je      .Lsha256_1_sse_epilog
 
-
 	# load initial digest
 	lea	TBL,[rip + .LDIGEST]
 	mov	a, [4*0 + TBL]
@@ -416,19 +418,24 @@ hashtree_sha256_sse_x1:
 
         lea     TBL,[rip + .LK256]
 
-	# byte swap first 16 dwords
+	# byte swap first 16 dwords with prefetching
+	prefetchnta	[DATA_PTR + 64]		# prefetch next block
 	COPY_XMM_AND_BSWAP	X0, [DATA_PTR + 0*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X1, [DATA_PTR + 1*16], BYTE_FLIP_MASK
+	prefetchnta	[DATA_PTR + 128]	# prefetch further ahead
 	COPY_XMM_AND_BSWAP	X2, [DATA_PTR + 2*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X3, [DATA_PTR + 3*16], BYTE_FLIP_MASK
 
 	# schedule 48 input dwords, by doing 3 rounds of 16 each
+	# optimized with better alignment and prefetching
 
 .rept 3
-.align 16
+.align 32
+	# Process 4 blocks with optimized scheduling
 	movdqa	XFER, [TBL + 0*16]
 	paddd	XFER, X0
 	movdqa	[rsp], XFER
+	prefetchnta	[TBL + 8*16]		# prefetch K constants ahead
 	FOUR_ROUNDS_AND_SCHED
 
 	movdqa	XFER, [TBL + 1*16]
