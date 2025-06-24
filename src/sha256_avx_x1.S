@@ -459,11 +459,12 @@ hashtree_sha256_avx_x1:
 
 	lea	TBL,[rip + .LK256]
 
-	//; byte swap first 16 dwords with prefetching
-	PREFETCH_DATA	64		// prefetch next block
+	//; byte swap first 16 dwords with multi-level prefetching
+	prefetchnta	[DATA_PTR + 768]	// L3 prefetch 12 blocks ahead
+	prefetcht2	[DATA_PTR + 384]	// L2 prefetch 6 blocks ahead
+	prefetcht0	[DATA_PTR + 192]	// L1 prefetch 3 blocks ahead
 	COPY_XMM_AND_BSWAP	X0, [DATA_PTR + 0*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X1, [DATA_PTR + 1*16], BYTE_FLIP_MASK
-	PREFETCH_DATA	128		// prefetch further ahead
 	COPY_XMM_AND_BSWAP	X2, [DATA_PTR + 2*16], BYTE_FLIP_MASK
 	COPY_XMM_AND_BSWAP	X3, [DATA_PTR + 3*16], BYTE_FLIP_MASK
 
@@ -472,7 +473,7 @@ hashtree_sha256_avx_x1:
 .align 32
 	vpaddd	XFER, X0, [TBL + 0*16]
 	vmovdqa	[rsp], XFER
-	PREFETCH_CONSTANTS	256	// prefetch K constants ahead
+	prefetcht0	[TBL + 256]	// prefetch K constants to L1
 	FOUR_ROUNDS_AND_SCHED
 
 	vpaddd	XFER, X0, [TBL + 1*16]
@@ -604,6 +605,7 @@ hashtree_sha256_avx_x1:
 #endif
 	pop	rbx
 
+	vzeroupper		// Clear upper YMM state to avoid SSE transition penalty
 	ret
 #ifdef __linux__ 
 .size hashtree_sha256_avx_x1,.-hashtree_sha256_avx_x1

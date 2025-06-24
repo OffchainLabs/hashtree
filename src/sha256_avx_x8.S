@@ -586,6 +586,7 @@ hashtree_sha256_avx2_x8:
         endbr64
         cmp     NUM_BLKS, 0
         jne     .Lstart_routine
+        vzeroupper
         ret
 .Lstart_routine:       
 	push 	rbp
@@ -621,7 +622,10 @@ hashtree_sha256_avx2_x8:
 	# Prefetch data 8 blocks ahead (8*64 = 512 bytes)
 	cmp	NUM_BLKS, 16
 	jb	.Lskip_prefetch_x8
-	prefetchnta [DATA_PTR + 512]
+	# Multi-level prefetching for better cache utilization
+	prefetchnta [DATA_PTR + 512]     # L3 cache hint
+	prefetcht2 [DATA_PTR + 512]      # L2 cache hint
+	prefetcht0 [DATA_PTR + 512]      # L1 cache hint
 .Lskip_prefetch_x8:
 
 	lea TBL,[rip + .LDIGEST_8]

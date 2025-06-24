@@ -964,6 +964,7 @@ hashtree_sha256_avx512_x16:
         endbr64
         cmp     COUNT, 0
         jne     .Lstart_routine
+        vzeroupper
         ret
 
 .Lstart_routine:
@@ -980,7 +981,10 @@ hashtree_sha256_avx512_x16:
 	# Prefetch data 16 blocks ahead (16*64 = 1024 bytes)
 	cmp		COUNT, 32
 	jb		.Lskip_prefetch_x16
-	prefetchnta	[DATA_PTR + 1024]
+	# Multi-level prefetching for better cache utilization
+	prefetchnta	[DATA_PTR + 1024]     # L3 cache hint
+	prefetcht2	[DATA_PTR + 1024]      # L2 cache hint
+	prefetcht0	[DATA_PTR + 1024]      # L1 cache hint
 .Lskip_prefetch_x16:
 	
 	# Load pre-transposed digest

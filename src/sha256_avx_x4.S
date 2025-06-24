@@ -352,6 +352,7 @@ hashtree_sha256_avx_x4:
         endbr64
 	cmp	NUM_BLKS, 0
 	jne	.Lstart_routine
+	vzeroupper
 	ret
 .Lstart_routine:
 	sub	rsp, sha256_avx_4_stack_size
@@ -376,7 +377,10 @@ hashtree_sha256_avx_x4:
 	# Prefetch data 4 blocks ahead (4*64 = 256 bytes)
 	cmp	NUM_BLKS, 8
 	jb	.Lskip_prefetch_x4
-	prefetchnta [DATA_PTR + 256]
+	# Multi-level prefetching for better cache utilization
+	prefetchnta [DATA_PTR + 256]     # L3 cache hint
+	prefetcht2 [DATA_PTR + 256]      # L2 cache hint
+	prefetcht0 [DATA_PTR + 256]      # L1 cache hint
 .Lskip_prefetch_x4:
 
 	xor	ROUND, ROUND
