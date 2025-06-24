@@ -42,8 +42,8 @@ static hashtree_hash_fcn hash_ptr = init_and_hash;
 // Enhanced microarchitecture detection
 static int is_intel_cpu() {
 #ifdef __x86_64__
-    uint32_t ebx, ecx, edx;
-    __get_cpuid(0, &ebx, &ebx, &ecx, &edx);
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+    __get_cpuid(0, &eax, &ebx, &ecx, &edx);
     // Intel signature: "GenuineIntel"
     return (ebx == 0x756e6547 && edx == 0x49656e69 && ecx == 0x6c65746e);
 #endif
@@ -52,7 +52,7 @@ static int is_intel_cpu() {
 
 static int is_amd_cpu() {
 #ifdef __x86_64__
-    uint32_t eax, ebx, ecx, edx;
+    uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
     __get_cpuid(0, &eax, &ebx, &ecx, &edx);
     // AMD signature: "AuthenticAMD"
     return (ebx == 0x68747541 && edx == 0x69746e65 && ecx == 0x444d4163);
