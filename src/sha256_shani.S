@@ -135,69 +135,63 @@ hashtree_sha256_shani_x2:
         cmp             NUM_BLKS, 2
 	jl		.Lsha256_shani_x1
 
-	# Prefetch data for better cache usage
-	cmp		NUM_BLKS, 4
-	jb		.Lskip_prefetch
-	prefetchnta	[DATA_PTR + 8*64]
-.Lskip_prefetch:
-
         movdqa          STATE0, [rip + .LDIGEST]
         movdqa          STATE1, [rip + .LDIGEST + 16]
 
         movdqa          STATE0b, [rip + .LDIGEST]
         movdqa          STATE1b, [rip +.LDIGEST + 16]
 
-	# Rounds 0-3 - Optimized instruction scheduling
+	# Rounds 0-3
 	movdqu		MSG, [DATA_PTR + 0*16]
-	movdqu		MSGTMP4, [DATA_PTR + 4*16]  # Early load for second block
 	pshufb		MSG, SHUF_MASK
-	pshufb		MSGTMP4, SHUF_MASK
 	movdqa		MSGTMP0, MSG
-	movdqa		MSGTMP0b, MSGTMP4
 		paddd		MSG, [SHA256CONSTANTS + 0*16]
 		sha256rnds2	STATE1, STATE0
-		paddd		MSGTMP4, [SHA256CONSTANTS + 0*16]
-		sha256rnds2	STATE1b, STATE0b
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0, STATE1
-		pshufd 		MSGTMP4, MSGTMP4, 0x0E
+	movdqu		MSG, [DATA_PTR + 4*16]
+	pshufb		MSG, SHUF_MASK
+	movdqa		MSGTMP0b, MSG
+		paddd		MSG, [SHA256CONSTANTS + 0*16]
+		sha256rnds2	STATE1b, STATE0b
+		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0b, STATE1b
 
 
-	# Rounds 4-7 - Interleaved execution
+	# Rounds 4-7
 	movdqu		MSG, [DATA_PTR + 1*16]
-	movdqu		MSGTMP4, [DATA_PTR + 5*16]
 	pshufb		MSG, SHUF_MASK
-	pshufb		MSGTMP4, SHUF_MASK
 	movdqa		MSGTMP1, MSG
-	movdqa		MSGTMP1b, MSGTMP4
 		paddd		MSG, [SHA256CONSTANTS + 1*16]
 		sha256rnds2	STATE1, STATE0
-		sha256msg1	MSGTMP0, MSGTMP1
-		paddd		MSGTMP4, [SHA256CONSTANTS + 1*16]
-		sha256rnds2	STATE1b, STATE0b
-		sha256msg1	MSGTMP0b, MSGTMP1b
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0, STATE1
-		pshufd 		MSGTMP4, MSGTMP4, 0x0E
-		sha256rnds2	STATE0b, STATE1b
-	# Rounds 8-11 - Continued optimization
-	movdqu		MSG, [DATA_PTR + 2*16]
-	movdqu		MSGTMP4, [DATA_PTR + 6*16]
+	sha256msg1	MSGTMP0, MSGTMP1
+	movdqu		MSG, [DATA_PTR + 5*16]
 	pshufb		MSG, SHUF_MASK
-	pshufb		MSGTMP4, SHUF_MASK
+	movdqa		MSGTMP1b, MSG
+		paddd		MSG, [SHA256CONSTANTS + 1*16]
+		sha256rnds2	STATE1b, STATE0b
+		pshufd 		MSG, MSG, 0x0E
+		sha256rnds2	STATE0b, STATE1b
+	sha256msg1	MSGTMP0b, MSGTMP1b
+	# Rounds 8-11
+	movdqu		MSG, [DATA_PTR + 2*16]
+	pshufb		MSG, SHUF_MASK
 	movdqa		MSGTMP2, MSG
-	movdqa		MSGTMP2b, MSGTMP4
 		paddd		MSG, [SHA256CONSTANTS + 2*16]
 		sha256rnds2	STATE1, STATE0
-		sha256msg1	MSGTMP1, MSGTMP2
-		paddd		MSGTMP4, [SHA256CONSTANTS + 2*16]
-		sha256rnds2	STATE1b, STATE0b
-		sha256msg1	MSGTMP1b, MSGTMP2b
 		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0, STATE1
-		pshufd 		MSGTMP4, MSGTMP4, 0x0E
+	sha256msg1	MSGTMP1, MSGTMP2
+	movdqu		MSG, [DATA_PTR + 6*16]
+	pshufb		MSG, SHUF_MASK
+	movdqa		MSGTMP2b, MSG
+		paddd		MSG, [SHA256CONSTANTS + 2*16]
+		sha256rnds2	STATE1b, STATE0b
+		pshufd 		MSG, MSG, 0x0E
 		sha256rnds2	STATE0b, STATE1b
+	sha256msg1	MSGTMP1b, MSGTMP2b
 	# Rounds 12-15
 	movdqu		MSG, [DATA_PTR + 3*16]
 	pshufb		MSG, SHUF_MASK

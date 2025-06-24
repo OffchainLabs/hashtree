@@ -618,12 +618,6 @@ hashtree_sha256_avx2_x8:
 	cmp 	NUM_BLKS, 8
 	jb 	.Lsha256_8_avx2_epilog
 
-	# Prefetch data 8 blocks ahead (8*64 = 512 bytes)
-	cmp	NUM_BLKS, 16
-	jb	.Lskip_prefetch_x8
-	prefetchnta [DATA_PTR + 512]
-.Lskip_prefetch_x8:
-
 	lea TBL,[rip + .LDIGEST_8]
 	vmovdqa	a,[TBL + 0*32]
 	vmovdqa	b,[TBL + 1*32]
