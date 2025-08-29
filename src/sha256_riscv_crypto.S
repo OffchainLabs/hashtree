@@ -175,7 +175,7 @@ SOFTWARE.
 
 .text
 .global hashtree_sha256_riscv_crypto
-.type   hashtree_sha256_riscv_zbb_x1,%function
+.type   hashtree_sha256_riscv_crypto,%function
 .align 4
 hashtree_sha256_riscv_crypto:
     // set the stack (assumed to be aligned)
