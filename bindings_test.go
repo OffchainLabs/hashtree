@@ -173,6 +173,75 @@ func TestHash(t *testing.T) {
 	}
 }
 
+func TestHashByteSlice(t *testing.T) {
+	tests := []struct {
+		name  string
+		count uint32
+	}{
+		{
+			name:  "hash 1 block",
+			count: 1,
+		},
+		{
+			name:  "hash 4 blocks",
+			count: 4,
+		},
+		{
+			name:  "hash 8 blocks",
+			count: 8,
+		},
+		{
+			name:  "hash 16 blocks",
+			count: 16,
+		},
+		{
+			name:  "hash 18 blocks",
+			count: 18,
+		},
+		{
+			name:  "hash 24 blocks",
+			count: 24,
+		},
+		{
+			name:  "hash 32 blocks",
+			count: 32,
+		},
+		{
+			name:  "hash 31 blocks",
+			count: 31,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			digests := make([]byte, 32*tt.count)
+			chunks := make([]byte, 64*tt.count)
+			for i := 0; i < int(2*tt.count); i += 2 {
+				if n := copy(chunks[32*i:32*i+32], _test_32_block[i][:]); n != 32 {
+					t.Logf("copied wrong number of bytes")
+					t.Fail()
+				}
+				if n := copy(chunks[32*i+32:32*i+64], _test_32_block[i+1][:]); n != 32 {
+					t.Logf("copied wrong number of bytes")
+					t.Fail()
+				}
+			}
+
+			err := HashByteSlice(digests, chunks)
+			if err != nil {
+				t.Log(err)
+				t.Fail()
+			}
+			for i := 0; i < int(tt.count); i++ {
+				if !reflect.DeepEqual(digests[32*i:32*i+32], _test_32_digests[i][:]) {
+					t.Logf("Digests are different\n Expected: %x\n Produced: %x\n",
+						_test_32_digests[i][:], digests[32*i:32*i+32])
+					t.Fail()
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkHash_1(b *testing.B) {
 	chunks := make([][32]byte, 2)
 	digests := make([][32]byte, 1)
