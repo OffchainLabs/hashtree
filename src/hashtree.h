@@ -34,6 +34,9 @@ typedef void (*hashtree_hash_fcn)(unsigned char*, const unsigned char*, uint64_t
 
 /** Initialize the library to use the given hash tree function or perform
  * auto-detection based on the CPU if `NULL` is given.
+ *
+ * Calling this function is optional - if it is not called, auto-detection happens
+ * automatically on the first hash computation.
  */
 void hashtree_init(hashtree_hash_fcn override);
 
