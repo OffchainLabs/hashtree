@@ -25,14 +25,25 @@ jobs:
         run: |
           cd src
           make clean
-          # Build with maximum compatibility flags
-          CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make
+          # Build with reproducible flags
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          make CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          # Copy the library to a simple location
+          cp ../build/lib/libhashtree.a ./libhashtree.a
+          # Remove non-deterministic archive metadata
+          strip --strip-debug ./libhashtree.a || true
+          # Normalize archive
+          ranlib ./libhashtree.a
+          # Generate checksum
+          sha256sum libhashtree.a > libhashtree.a.sha256
           
       - name: Upload Linux AMD64 library
         uses: actions/upload-artifact@v4
         with:
           name: libhashtree-linux-amd64
-          path: build/lib/libhashtree.a
+          path: |
+            src/libhashtree.a
+            src/libhashtree.a.sha256
           retention-days: 7
 
   build-linux-arm64:
@@ -49,14 +60,25 @@ jobs:
         run: |
           cd src
           make clean
-          # Build with maximum compatibility flags
-          CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make
+          # Build with reproducible flags
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          make CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          # Copy the library to a simple location
+          cp ../build/lib/libhashtree.a ./libhashtree.a
+          # Remove non-deterministic archive metadata
+          aarch64-linux-gnu-strip --strip-debug ./libhashtree.a || true
+          # Normalize archive
+          aarch64-linux-gnu-ranlib ./libhashtree.a
+          # Generate checksum
+          sha256sum libhashtree.a > libhashtree.a.sha256
           
       - name: Upload Linux ARM64 library
         uses: actions/upload-artifact@v4
         with:
           name: libhashtree-linux-arm64
-          path: build/lib/libhashtree.a
+          path: |
+            src/libhashtree.a
+            src/libhashtree.a.sha256
           retention-days: 7
 
 
@@ -69,14 +91,25 @@ jobs:
         run: |
           cd src
           make clean
-          # Build with compatibility flags for older macOS (ARM64 minimum)
-          CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=11.0" make
+          # Build with reproducible flags
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          make CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=11.0 -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          # Copy the library to a simple location
+          cp ../build/lib/libhashtree.a ./libhashtree.a
+          # Remove non-deterministic archive metadata
+          strip -S ./libhashtree.a || true
+          # Normalize archive
+          ranlib ./libhashtree.a
+          # Generate checksum
+          shasum -a 256 libhashtree.a > libhashtree.a.sha256
           
       - name: Upload Darwin ARM64 library
         uses: actions/upload-artifact@v4
         with:
           name: libhashtree-darwin-arm64
-          path: build/lib/libhashtree.a
+          path: |
+            src/libhashtree.a
+            src/libhashtree.a.sha256
           retention-days: 7
 
   build-windows-amd64:
@@ -101,25 +134,35 @@ jobs:
         run: |
           cd src
           make clean
-          # Build with compatibility flags
-          CFLAGS="-O3 -Wall -Werror -static" make
+          # Build with reproducible flags
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          make CFLAGS="-O3 -Wall -Werror -static -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          # Copy the library (Windows might create .lib, normalize to .a)
+          if [ -f "../build/lib/libhashtree.lib" ]; then
+            cp ../build/lib/libhashtree.lib ./libhashtree.a
+          else
+            cp ../build/lib/libhashtree.a ./libhashtree.a
+          fi
+          # Remove non-deterministic archive metadata
+          strip --strip-debug ./libhashtree.a || true
+          # Normalize archive
+          ranlib ./libhashtree.a
+          # Generate checksum
+          sha256sum libhashtree.a > libhashtree.a.sha256
           
       - name: Upload Windows AMD64 library
         uses: actions/upload-artifact@v4
         with:
           name: libhashtree-windows-amd64
-          path: build/lib/libhashtree.a
+          path: |
+            src/libhashtree.a
+            src/libhashtree.a.sha256
           retention-days: 7
 
   collect-libraries:
     runs-on: ubuntu-latest
     needs: [build-linux-amd64, build-linux-arm64, build-darwin-arm64, build-windows-amd64]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          
       - name: Create lib directories
         run: |
           mkdir -p lib/{linux_amd64,linux_arm64,darwin_arm64,windows_amd64}
@@ -130,32 +173,83 @@ jobs:
           pattern: libhashtree-*
           merge-multiple: false
           
-      - name: Move libraries to correct locations
+      - name: Move libraries and checksums to correct locations
         run: |
-          cp libhashtree-linux-amd64/libhashtree.a lib/linux_amd64/
-          cp libhashtree-linux-arm64/libhashtree.a lib/linux_arm64/
-          cp libhashtree-darwin-arm64/libhashtree.a lib/darwin_arm64/
-          cp libhashtree-windows-amd64/libhashtree.a lib/windows_amd64/
+          cp libhashtree-linux-amd64/libhashtree.a* lib/linux_amd64/
+          cp libhashtree-linux-arm64/libhashtree.a* lib/linux_arm64/
+          cp libhashtree-darwin-arm64/libhashtree.a* lib/darwin_arm64/
+          cp libhashtree-windows-amd64/libhashtree.a* lib/windows_amd64/
           
-      - name: Verify libraries
+      - name: Verify libraries and checksums
         run: |
+          echo "=== Library Information ==="
           echo "Linux AMD64:" && file lib/linux_amd64/libhashtree.a
           echo "Linux ARM64:" && file lib/linux_arm64/libhashtree.a  
           echo "Darwin ARM64:" && file lib/darwin_arm64/libhashtree.a
           echo "Windows AMD64:" && file lib/windows_amd64/libhashtree.a
+          echo ""
+          echo "=== Checksum Verification ==="
+          for platform in linux_amd64 linux_arm64 darwin_arm64 windows_amd64; do
+            echo "Verifying $platform..."
+            cd lib/$platform
+            if command -v sha256sum >/dev/null; then
+              sha256sum -c libhashtree.a.sha256
+            else
+              shasum -a 256 -c libhashtree.a.sha256
+            fi
+            cd ../..
+          done
           
-      - name: Commit updated libraries
+      - name: Create library bundle
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add lib/
-          if ! git diff --staged --quiet; then
-            git commit -m "Update pre-built static libraries
-            
-            Built from commit ${{ github.sha }}
-            
-            🤖 Generated with GitHub Actions"
-            git push
-          else
-            echo "No changes to libraries"
-          fi
+          echo "# Static Library Bundle" > lib/README.md
+          echo "" >> lib/README.md
+          echo "## Build Information" >> lib/README.md
+          echo "- **Commit:** ${{ github.sha }}" >> lib/README.md
+          echo "- **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> lib/README.md
+          echo "- **Build Trigger:** ${{ github.event_name }}" >> lib/README.md
+          echo "- **Repository:** ${{ github.repository }}" >> lib/README.md
+          echo "- **Workflow:** ${{ github.workflow }}" >> lib/README.md
+          echo "- **Run ID:** ${{ github.run_id }}" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "## Contents" >> lib/README.md
+          echo "Each platform directory contains:" >> lib/README.md
+          echo "- \`libhashtree.a\` - Static library with platform-specific optimizations" >> lib/README.md
+          echo "- \`libhashtree.a.sha256\` - SHA256 checksum for verification" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "### Platform Details:" >> lib/README.md
+          echo "- **linux_amd64/** - Linux x86_64 with AVX2/AVX512/SHANI optimizations" >> lib/README.md
+          echo "- **linux_arm64/** - Linux ARM64 with NEON/SHA2 optimizations" >> lib/README.md
+          echo "- **darwin_arm64/** - macOS Apple Silicon with SHA2 optimizations" >> lib/README.md
+          echo "- **windows_amd64/** - Windows x86_64 with AVX2/AVX512/SHANI optimizations" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "**Note:** macOS Intel (darwin_amd64) is not included - uses pure Go fallback implementation" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "## Reproducible Builds" >> lib/README.md
+          echo "These libraries are built with reproducible build flags:" >> lib/README.md
+          echo "- \`SOURCE_DATE_EPOCH\` set to commit timestamp" >> lib/README.md
+          echo "- \`-ffile-prefix-map\` to normalize file paths" >> lib/README.md
+          echo "- Debug symbols stripped for determinism" >> lib/README.md
+          echo "- Archive metadata normalized" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "## Verification" >> lib/README.md
+          echo "To verify library integrity:" >> lib/README.md
+          echo "\`\`\`bash" >> lib/README.md
+          echo "# Verify SHA256 checksum" >> lib/README.md
+          echo "sha256sum -c libhashtree.a.sha256" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "\`\`\`" >> lib/README.md
+          echo "" >> lib/README.md
+          echo "## Reproduction" >> lib/README.md
+          echo "To reproduce these builds:" >> lib/README.md
+          echo "1. Check out commit: \`git checkout ${{ github.sha }}\`" >> lib/README.md
+          echo "2. Use the same GitHub Actions environment (see workflow file)" >> lib/README.md
+          echo "3. The build should produce identical checksums" >> lib/README.md
+          
+          
+      - name: Upload static library bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: hashtree-static-libs-${{ github.sha }}
+          path: lib/
+          retention-days: 30

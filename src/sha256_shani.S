@@ -44,24 +44,12 @@ SOFTWARE.
 	.long	0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208
 	.long	0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
 
-.LPSHUFFLE_BYTE_FLIP_MASK:
-#ifdef __APPLE__
-        .quad 0x0405060700010203
-        .quad 0x0c0d0e0f08090a0b
-#else
+.LPSHUFFLE_BYTE_FLIP_MASK: 
         .octa 0x0c0d0e0f08090a0b0405060700010203
-#endif
 
 .LDIGEST:
-#ifdef __APPLE__
-        .quad      0x510e527f9b05688c
-        .quad      0x6a09e667bb67ae85
-        .quad      0x1f83d9ab5be0cd19
-        .quad      0x3c6ef372a54ff53a
-#else
         .octa      0x6a09e667bb67ae85510e527f9b05688c
         .octa      0x3c6ef372a54ff53a1f83d9ab5be0cd19
-#endif
 
 .LPADDING:
         .long      0xc28a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5
@@ -118,21 +106,13 @@ SOFTWARE.
 .equiv MSGTMP3b,	xmm14
 .equiv MSGTMP4b,	xmm15
 
-.text
-#ifdef __APPLE__
-.global _hashtree_sha256_shani_x2
-#else
+.text 
 .global hashtree_sha256_shani_x2
-#endif
-#if !defined(__WIN64__) && !defined(__APPLE__)
+#ifndef __WIN64__
 .type   hashtree_sha256_shani_x2,%function
 #endif
 .align 16
-#ifdef __APPLE__
-_hashtree_sha256_shani_x2:
-#else
 hashtree_sha256_shani_x2:
-#endif
 	sub		rsp, frame_size
 #ifdef __WIN64__
 	movdqa		[rsp + 0*16], xmm6
