@@ -26,7 +26,7 @@ jobs:
           cd src
           make clean
           # Build with maximum compatibility flags
-          CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make libhashtree.a
+          CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make
           
       - name: Upload Linux AMD64 library
         uses: actions/upload-artifact@v4
@@ -50,7 +50,7 @@ jobs:
           cd src
           make clean
           # Build with maximum compatibility flags
-          CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make libhashtree.a
+          CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt" make
           
       - name: Upload Linux ARM64 library
         uses: actions/upload-artifact@v4
@@ -69,7 +69,7 @@ jobs:
           cd src
           make clean
           # Build with compatibility flags for older macOS
-          CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=10.13" make libhashtree.a
+          CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=10.13" make
           
       - name: Upload Darwin AMD64 library
         uses: actions/upload-artifact@v4
@@ -88,7 +88,7 @@ jobs:
           cd src
           make clean
           # Build with compatibility flags for older macOS (ARM64 minimum)
-          CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=11.0" make libhashtree.a
+          CFLAGS="-O3 -Wall -Werror -mmacosx-version-min=11.0" make
           
       - name: Upload Darwin ARM64 library
         uses: actions/upload-artifact@v4
@@ -120,7 +120,7 @@ jobs:
           cd src
           make clean
           # Build with compatibility flags
-          CFLAGS="-O3 -Wall -Werror -static" make libhashtree.a
+          CFLAGS="-O3 -Wall -Werror -static" make
           
       - name: Upload Windows AMD64 library
         uses: actions/upload-artifact@v4
