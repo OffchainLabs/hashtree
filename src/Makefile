@@ -138,9 +138,6 @@ else
 all: $(libname) test bench
 endif
 
-go_bindings: $(libname)
-	cp $(libname) $(BASE_DIR)/hashtree.syso
-	go build $(BASE_DIR)
 
 test: hashtree.h acutest.h test.c $(libname)
 	$(CC) $(CFLAGS) $(LDFLAGS) -L$(LIB_DIR) -o $(OUT_DIR)/test test.c $(testlibs)
@@ -149,7 +146,7 @@ bench: hashtree.h ubench.h bench.c $(libname)
 	$(CC) $(CFLAGS) $(LDFLAGS) -L$(LIB_DIR) -o $(OUT_DIR)/bench bench.c $(benchlibs)
 
 clean:
-	-rm -f $(OBJ_LIST) $(LIB_DIR)/libhashtree.a $(LIB_DIR)/libhashtree.lib $(OUT_DIR)/test $(OUT_DIR)/test.exe $(OUT_DIR)/bench hashtree.pc $(BASE_DIR)/hashtree.syso
+	-rm -f $(OBJ_LIST) $(LIB_DIR)/libhashtree.a $(LIB_DIR)/libhashtree.lib $(OUT_DIR)/test $(OUT_DIR)/test.exe $(OUT_DIR)/bench hashtree.pc
 
 ifeq ($(PREFIX),)
 PREFIX := /usr

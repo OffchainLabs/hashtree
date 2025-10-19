@@ -16,8 +16,6 @@ rust_bindings:
 	cd rust_bindings && cargo build --release
 rust_tests:
 	cd rust_bindings && cargo test
-go_bindings:
-	$(MAKE) -C src go_bindings
 all:
 	$(MAKE) -C src all
 
