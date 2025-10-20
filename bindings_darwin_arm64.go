@@ -16,6 +16,6 @@ func HashtreeHash(output *byte, input *byte, count uint64)
 var hasShani = cpuid.CPU.Supports(cpuid.SHA2)
 
 func init() {
-	supportedCPU = hasShani
+	supportedCPU = true
 	hasHashtreeHash = HashtreeHash
 }
