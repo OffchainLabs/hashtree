@@ -17,7 +17,8 @@ var (
 	ErrDigestsNotMultipleOf32 = errors.New("digests not multiple of 32 bytes")
 )
 
-// HashtreeHash is defined in assembly for supported platforms
+//go:noescape
+func HashtreeHash(output *byte, input *byte, count uint64)
 
 // Hash hashes the chunks two at the time and outputs the digests on the first
 // argument. It does check for lengths on the inputs.
