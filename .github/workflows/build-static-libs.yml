@@ -27,7 +27,7 @@ jobs:
           make clean
           # Build with reproducible flags
           export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-          make CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          make CFLAGS="-O3 -Wall -Werror -static -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
           # Copy the library to a simple location
           cp ../build/lib/libhashtree.a ./libhashtree.a
           # Remove non-deterministic archive metadata
@@ -62,7 +62,7 @@ jobs:
           make clean
           # Build with reproducible flags
           export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
-          make CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-stack-protector -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
+          make CC=aarch64-linux-gnu-gcc ARM=1 CFLAGS="-O3 -Wall -Werror -static -fno-plt -ffile-prefix-map=$(pwd)=." ASFLAGS="-g -fpic"
           # Copy the library to a simple location
           cp ../build/lib/libhashtree.a ./libhashtree.a
           # Remove non-deterministic archive metadata
