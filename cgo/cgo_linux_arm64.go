@@ -1,9 +1,9 @@
 //go:build linux && arm64
 // +build linux,arm64
 
-package lib
+package cgo
 
 /*
-#cgo LDFLAGS: -L./linux_amd64 -lhashtree
+#cgo LDFLAGS: -L../lib/linux_arm64 -lhashtree
 */
 import "C"

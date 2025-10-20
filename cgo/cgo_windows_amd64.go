@@ -1,9 +1,9 @@
 //go:build windows && amd64
 // +build windows,amd64
 
-package lib
+package cgo
 
 /*
-#cgo LDFLAGS: -L./windows_amd64 -lhashtree
+#cgo LDFLAGS: -L../lib/windows_amd64 -lhashtree
 */
 import "C"

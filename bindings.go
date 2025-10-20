@@ -17,8 +17,8 @@ var (
 	ErrDigestsNotMultipleOf32 = errors.New("digests not multiple of 32 bytes")
 )
 
-//go:noescape
-func HashtreeHash(output *byte, input *byte, count uint64)
+var supportedCPU = false
+var hasHashtreeHash func(output *byte, input *byte, count uint64)
 
 // Hash hashes the chunks two at the time and outputs the digests on the first
 // argument. It does check for lengths on the inputs.
@@ -34,7 +34,7 @@ func Hash(digests [][32]byte, chunks [][32]byte) error {
 		return fmt.Errorf("%w: need at least %v, got %v", ErrNotEnoughDigests, len(chunks)/2, len(digests))
 	}
 	if supportedCPU {
-		HashtreeHash(&digests[0][0], &chunks[0][0], uint64(len(chunks)/2))
+		hasHashtreeHash(&digests[0][0], &chunks[0][0], uint64(len(chunks)/2))
 	} else {
 		sha256_1_generic(digests, chunks)
 	}

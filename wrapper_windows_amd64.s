@@ -1,4 +1,5 @@
-// +build windows,amd64
+//go:build cgo && windows && amd64
+// +build cgo,windows,amd64
 
 TEXT ·HashtreeHash(SB), 0, $1024-24
 		    MOVQ output+0(FP), CX

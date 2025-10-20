@@ -1,4 +1,5 @@
-// +build arm64
+//go:build cgo && arm64
+// +build cgo,arm64
 
 TEXT ·HashtreeHash(SB), 0, $2048-24
 		    MOVD output+0(FP), R0

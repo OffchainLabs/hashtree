@@ -1,4 +1,5 @@
-// +build linux,amd64
+//go:build cgo && linux && amd64
+// +build cgo,linux,amd64
 
 TEXT ·HashtreeHash(SB), 0, $2048-24
 		    MOVQ output+0(FP), DI
