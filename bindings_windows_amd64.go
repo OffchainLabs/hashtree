@@ -19,5 +19,5 @@ var hasShani = cpuid.CPU.Supports(cpuid.SHA, cpuid.AVX)
 
 func init() {
 	supportedCPU = hasAVX2 || hasShani || hasAVX512
-	hasHashtreeHash = HashtreeHash
+	hashtreeHash = HashtreeHash
 }
