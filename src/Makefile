@@ -106,6 +106,7 @@ else ifeq ($(RISCV), 1)
 	OBJ_LIST = $(OBJ_DIR)/sha256_riscv_x1.o\
 		   $(OBJ_DIR)/sha256_riscv_zbb_x1.o\
 		   $(OBJ_DIR)/sha256_riscv_crypto.o\
+		$(OBJ_DIR)/sha256_generic.o\
 		$(OBJ_DIR)/hashtree.o
 else
 	OBJ_LIST = $(OBJ_DIR)/sha256_shani.o\
