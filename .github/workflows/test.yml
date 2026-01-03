@@ -32,16 +32,30 @@ jobs:
           - name: Windows arm64
             target: aarch64-pc-windows-msvc
             runner: windows-latest
+          - name: Linux RISC-V 64
+            target: riscv64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cc: riscv64-linux-gnu-gcc
+            qemu: qemu-riscv64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install RISC-V toolchain and QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
       - name: Cross-Compile Build
         if: ${{ matrix.settings.cc != '' }}
         run: CC=${{ matrix.settings.cc }} make all
       - name: Build
         if: ${{ !matrix.settings.cc }}
         run: make all
+      - name: Run tests with QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./build/test
       - name: Run tests
+        if: ${{ !matrix.settings.qemu }}
         run: ./build/test
 
   go-bindings:
