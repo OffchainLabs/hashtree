@@ -131,7 +131,7 @@ jobs:
       - name: Run tests with QEMU
         if: ${{ matrix.settings.qemu }}
         run: |
-          GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -o test.riscv64
+          CGO_ENABLED=1 CC=${{ matrix.settings.cc }} GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -o test.riscv64
           ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./test.riscv64
       - name: Run benchmarks
         if: ${{ !matrix.settings.qemu }}
