@@ -55,6 +55,10 @@ jobs:
           - name: MacOS arm64
             target: aarch64-apple-darwin
             runner: macos-latest
+          - name: MacOS x86
+            target: x86_64-apple-darwin
+            runner: macos-15-intel
+            generic_only: true
           - name: Linux x86
             target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
@@ -86,8 +90,11 @@ jobs:
         if: ${{ matrix.settings.cc != '' }}
         run: CC=${{ matrix.settings.cc }} make go_bindings
       - name: Build
-        if: ${{ !matrix.settings.cc }}
+        if: ${{ !matrix.settings.cc && !matrix.settings.generic_only }}
         run: make go_bindings
+      - name: Build (generic only)
+        if: ${{ matrix.settings.generic_only }}
+        run: go build .
       - name: Run tests
         run: go test .
       - name: Run benchmarks
