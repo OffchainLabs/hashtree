@@ -1,0 +1,94 @@
+name: Build syso files
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'src/**'
+
+jobs:
+  build-syso:
+    name: Build ${{ matrix.settings.name }}
+    runs-on: ${{ matrix.settings.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - name: Linux x86
+            runner: ubuntu-latest
+            syso_name: hashtree_linux_amd64.syso
+          - name: macOS arm64
+            runner: macos-latest
+            syso_name: hashtree_darwin_arm64.syso
+          - name: Linux arm64
+            runner: ubuntu-latest
+            cc: aarch64-linux-gnu-gcc
+            cross_pkg: gcc-aarch64-linux-gnu
+            syso_name: hashtree_linux_arm64.syso
+          - name: Windows x86
+            runner: windows-latest
+            syso_name: hashtree_windows_amd64.syso
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Install cross-compiler
+        if: ${{ matrix.settings.cross_pkg }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.settings.cross_pkg }}
+
+      - name: Build (cross-compile)
+        if: ${{ matrix.settings.cc }}
+        shell: bash
+        run: |
+          CC=${{ matrix.settings.cc }} make go_bindings
+          mv -f hashtree.syso ${{ matrix.settings.syso_name }}
+
+      - name: Build (native)
+        if: ${{ !matrix.settings.cc }}
+        shell: bash
+        run: |
+          make go_bindings
+          mv -f hashtree.syso ${{ matrix.settings.syso_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.settings.syso_name }}
+          path: ${{ matrix.settings.syso_name }}
+
+  commit-syso:
+    name: Commit syso files
+    needs: build-syso
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Move syso files to root
+        run: |
+          for dir in artifacts/*/; do
+            mv "$dir"/*.syso .
+          done
+          ls -la *.syso
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add *.syso
+          git diff --staged --quiet || git commit -m "Update syso files"
+          git push
