@@ -70,41 +70,41 @@ SOFTWARE.
         .long      0xd2c741c6, 0x07237ea3, 0xa4954b68, 0x4c191d76
 
 #ifdef __WIN64__
-                    .equiv OUTPUT_PTR,rcx 	// 1st arg
-                    .equiv DATA_PTR, rdx 	// 2nd arg
-                    .equiv NUM_BLKS, r8	        // 3rd arg
-                    .equiv SHA256PADDING, r9
+                    #define OUTPUT_PTR rcx 	// 1st arg
+                    #define DATA_PTR rdx 	// 2nd arg
+                    #define NUM_BLKS r8	        // 3rd arg
+                    #define SHA256PADDING r9
 		    #define _DIGEST 160
                     #define frame_size 248
 #else
-                    .equiv OUTPUT_PTR, rdi	// 1st arg
-                    .equiv DATA_PTR, rsi	// 2nd arg
-                    .equiv NUM_BLKS, rdx	// 3rd arg
-                    .equiv SHA256PADDING, rcx
+                    #define OUTPUT_PTR rdi	// 1st arg
+                    #define DATA_PTR rsi	// 2nd arg
+                    #define NUM_BLKS rdx	// 3rd arg
+                    #define SHA256PADDING rcx
 		    #define _DIGEST 0
 		    #define frame_size 88
 #endif
 
-.equiv SHA256CONSTANTS,	rax
+#define SHA256CONSTANTS	rax
 
-.equiv MSG,		xmm0
-.equiv STATE0,		xmm1
-.equiv STATE1,		xmm2
-.equiv MSGTMP0,		xmm3
-.equiv MSGTMP1,		xmm4
-.equiv MSGTMP2,		xmm5
-.equiv MSGTMP3,		xmm6
-.equiv MSGTMP4,		xmm7
-.equiv SHUF_MASK,	xmm8
-.equiv ABEF_SAVE,	xmm9
-.equiv CDGH_SAVE,	xmm10
-.equiv STATE0b,         xmm9
-.equiv STATE1b,         xmm10
-.equiv MSGTMP0b,	xmm11
-.equiv MSGTMP1b,	xmm12
-.equiv MSGTMP2b,	xmm13
-.equiv MSGTMP3b,	xmm14
-.equiv MSGTMP4b,	xmm15
+#define MSG		xmm0
+#define STATE0		xmm1
+#define STATE1		xmm2
+#define MSGTMP0		xmm3
+#define MSGTMP1		xmm4
+#define MSGTMP2		xmm5
+#define MSGTMP3		xmm6
+#define MSGTMP4		xmm7
+#define SHUF_MASK	xmm8
+#define ABEF_SAVE	xmm9
+#define CDGH_SAVE	xmm10
+#define STATE0b         xmm9
+#define STATE1b         xmm10
+#define MSGTMP0b	xmm11
+#define MSGTMP1b	xmm12
+#define MSGTMP2b	xmm13
+#define MSGTMP3b	xmm14
+#define MSGTMP4b	xmm15
 
 .text 
 .global hashtree_sha256_shani_x2

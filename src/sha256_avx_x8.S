@@ -318,40 +318,50 @@ Copyright (c) 2012-2023, Intel Corporation
 
 
 #ifdef __WIN64__
-	.equiv OUTPUT_PTR,	rcx 	// 1st arg
-	.equiv DATA_PTR,	rdx 	// 2nd arg
-	.equiv NUM_BLKS, 	r8	// 3rd arg
-	.equiv TBL, 		rsi
+	#define OUTPUT_PTR rcx
+	#define DATA_PTR rdx
+	#define NUM_BLKS r8
+	#define TBL rsi
 #else
-	.equiv OUTPUT_PTR,	rdi	// 1st arg
-	.equiv DATA_PTR,	rsi	// 2nd arg
-	.equiv NUM_BLKS,	rdx	// 3rd arg
-	.equiv TBL, 		rcx
+	#define OUTPUT_PTR rdi
+	#define DATA_PTR rsi
+	#define NUM_BLKS rdx
+	#define TBL rcx
 #endif
 
-.equ a, ymm0
-.equ b, ymm1
-.equ c, ymm2
-.equ d, ymm3
-.equ e, ymm4
-.equ f, ymm5
-.equ g, ymm6
-.equ h, ymm7
+#define INI_a ymm0
+#define INI_b ymm1
+#define INI_c ymm2
+#define INI_d ymm3
+#define INI_e ymm4
+#define INI_f ymm5
+#define INI_g ymm6
+#define INI_h ymm7
 
-.equiv a0, ymm12
-.equiv a1, ymm13
-.equiv a2, ymm14
-.equiv TMP, ymm15
-.equiv TMP0, ymm6
-.equiv TMP1, ymm7
-.equiv TT0, ymm8
-.equiv TT1, ymm9
-.equiv TT2, ymm10
-.equiv TT3, ymm11
-.equiv TT4, ymm12
-.equiv TT5, ymm13
-.equiv TT6, ymm14
-.equiv TT7, ymm15
+// Aliases for non-macro code (at initial rotation state)
+#define a INI_a
+#define b INI_b
+#define c INI_c
+#define d INI_d
+#define e INI_e
+#define f INI_f
+#define g INI_g
+#define h INI_h
+
+#define a0 ymm12
+#define a1 ymm13
+#define a2 ymm14
+#define TMP ymm15
+#define TMP0 ymm6
+#define TMP1 ymm7
+#define TT0 ymm8
+#define TT1 ymm9
+#define TT2 ymm10
+#define TT3 ymm11
+#define TT4 ymm12
+#define TT5 ymm13
+#define TT6 ymm14
+#define TT7 ymm15
 
 #define SZ8 32
 
@@ -375,17 +385,7 @@ Copyright (c) 2012-2023, Intel Corporation
 #endif		
 #define VMOVPS	vmovups
 
-.macro ROTATE_ARGS
-.equ TMP_, h
-.equ h, g
-.equ g, f
-.equ f, e
-.equ e, d
-.equ d, c
-.equ c, b
-.equ b, a
-.equ a, TMP_
-.endm
+// ROTATE_ARGS removed - using parameterized macros with explicit registers instead
 
 .macro TRANSPOSE8_U32_LOAD8 r0, r1, r2, r3, r4, r5, r6, r7, addr0, addr1, addr2,\
                                         addr3, addr4, addr5, addr6, addr7,\
@@ -517,44 +517,45 @@ Copyright (c) 2012-2023, Intel Corporation
 	PRORD_nd4	\dst, \amt, TMP, \src
 .endm
 
-.macro ROUND_00_15 T1, i, j
-	PRORD_nd	a0, e, (11-6)	// sig1: a0 = (e >> 5)
+// Parameterized ROUND_00_15 macro with explicit registers (no rotation)
+.macro ROUND_00_15_P T1, i, j, ra, rb, rc, rd, re, rf, rg, rh, is_padding
+	PRORD_nd	a0, \re, (11-6)	// sig1: a0 = (e >> 5)
 
-	vpxor	a2, f, g	// ch: a2 = f^g
-	vpand	a2, a2, e		// ch: a2 = (f^g)&e
-	vpxor	a2, a2, g		// a2 = ch
+	vpxor	a2, \rf, \rg	// ch: a2 = f^g
+	vpand	a2, a2, \re		// ch: a2 = (f^g)&e
+	vpxor	a2, a2, \rg		// a2 = ch
 
-	PRORD_nd	a1, e, 25		// sig1: a1 = (e >> 25)
-.if .Lpadding - 1
+	PRORD_nd	a1, \re, 25		// sig1: a1 = (e >> 25)
+.if \is_padding - 1
 	vmovdqa	[SZ8*(\i&0xf) + rsp], \T1     // save current temp message
 	vpaddd	\T1, \T1, [TBL + \j]	// T1 = W + K
 .else
 	vmovdqa 	\T1, [TBL + (32*\i)]	// T1 = W + K
 .endif
-	vpxor	a0, a0, e	// sig1: a0 = e ^ (e >> 5)
+	vpxor	a0, a0, \re	// sig1: a0 = e ^ (e >> 5)
 	PRORD	a0, 6		// sig1: a0 = (e >> 6) ^ (e >> 11)
-	vpaddd	h, h, a2	// h = h + ch
-	PRORD_nd	a2, a, (13-2)	// sig0: a2 = (a >> 11)
-	vpaddd	h, h, \T1	// h = h + ch + W + K
+	vpaddd	\rh, \rh, a2	// h = h + ch
+	PRORD_nd	a2, \ra, (13-2)	// sig0: a2 = (a >> 11)
+	vpaddd	\rh, \rh, \T1	// h = h + ch + W + K
 	vpxor	a0, a0, a1	// a0 = sigma1
-	PRORD_nd	a1, a, 22	// sig0: a1 = (a >> 22)
-	vpxor	\T1, a, c	// maj: T1 = a^c
-	vpand	\T1, \T1, b	// maj: T1 = (a^c)&b
-	vpaddd	h, h, a0
+	PRORD_nd	a1, \ra, 22	// sig0: a1 = (a >> 22)
+	vpxor	\T1, \ra, \rc	// maj: T1 = a^c
+	vpand	\T1, \T1, \rb	// maj: T1 = (a^c)&b
+	vpaddd	\rh, \rh, a0
 
-	vpaddd	d, d, h
+	vpaddd	\rd, \rd, \rh
 
-	vpxor	a2, a2, a	// sig0: a2 = a ^ (a >> 11)
+	vpxor	a2, a2, \ra	// sig0: a2 = a ^ (a >> 11)
 	PRORD	a2, 2		// sig0: a2 = (a >> 2) ^ (a >> 13)
 	vpxor	a2, a2, a1	// a2 = sig0
-	vpand	a1, a, c	// maj: a1 = a&c
+	vpand	a1, \ra, \rc	// maj: a1 = a&c
 	vpor	a1, a1, \T1	// a1 = maj
-	vpaddd	h, h, a1	// h = h + ch + W + K + maj
-	vpaddd	h, h, a2	// h = h + ch + W + K + maj + sigma0
-	ROTATE_ARGS
+	vpaddd	\rh, \rh, a1	// h = h + ch + W + K + maj
+	vpaddd	\rh, \rh, a2	// h = h + ch + W + K + maj + sigma0
 .endm
 
-.macro ROUND_16_XX T1, i
+// Parameterized ROUND_16_XX macro with explicit registers (no rotation)
+.macro ROUND_16_XX_P T1, i, ra, rb, rc, rd, re, rf, rg, rh
 	vmovdqa	\T1, [SZ8*((\i-15)&0xf) + rsp]
 	vmovdqa	a1, [SZ8*((\i-2)&0xf) + rsp]
 	vmovdqa	a0, \T1
@@ -573,7 +574,7 @@ Copyright (c) 2012-2023, Intel Corporation
 	vpaddd	a1, a1, [SZ8*((\i-7)&0xf) + rsp]        // + W[i-7]
 	vpaddd	\T1, \T1, a1
 
-	ROUND_00_15 \T1, \i, 32*\i
+	ROUND_00_15_P \T1, \i, 32*\i, \ra, \rb, \rc, \rd, \re, \rf, \rg, \rh, 0
 .endm
 
 .text
@@ -614,7 +615,6 @@ hashtree_sha256_avx2_x8:
 
 	
 .Lsha256_8_avx2_loop:
-.set .Lpadding, 0
 	cmp 	NUM_BLKS, 8
 	jb 	.Lsha256_8_avx2_epilog
 
@@ -630,8 +630,7 @@ hashtree_sha256_avx2_x8:
 
 	lea	TBL,[rip + .LK256_8]
 	
-.set .Li, 0
-.rept 2
+	// Iteration 0 (.Li=0): rounds 0-7
 	TRANSPOSE8_U32_LOAD8 TT0, TT1, TT2, TT3, TT4, TT5, TT6, TT7, \
 			     DATA_PTR + 0*64, \
 			     DATA_PTR + 1*64, \
@@ -641,7 +640,7 @@ hashtree_sha256_avx2_x8:
 			     DATA_PTR + 5*64, \
 			     DATA_PTR + 6*64, \
 			     DATA_PTR + 7*64, \
-			     32*.Li
+			     0
 
 	vmovdqa	[YTMP0], g
 	vmovdqa	[YTMP1], h
@@ -661,26 +660,159 @@ hashtree_sha256_avx2_x8:
 	vmovdqa	[YTMP1], TT5
 	vmovdqa	[YTMP2], TT6
 	vmovdqa	[YTMP3], TT7
-	ROUND_00_15	TT0, 8*.Li, 32*8*.Li
+	ROUND_00_15_P TT0, 0, 0, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 0
 	vmovdqa	TT0, [YTMP0]
-	ROUND_00_15	TT1, 8*.Li+1, 32*(8*.Li+1)
+	ROUND_00_15_P TT1, 1, 32, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 0
 	vmovdqa	TT1, [YTMP1]
-	ROUND_00_15	TT2, 8*.Li+2, 32*(8*.Li+2)
+	ROUND_00_15_P TT2, 2, 64, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 0
 	vmovdqa	TT2, [YTMP2]
-	ROUND_00_15	TT3, 8*.Li+3, 32*(8*.Li+3)
+	ROUND_00_15_P TT3, 3, 96, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 0
 	vmovdqa	TT3, [YTMP3]
-	ROUND_00_15	TT0, 8*.Li+4, 32*(8*.Li+4)
-	ROUND_00_15	TT1, 8*.Li+5, 32*(8*.Li+5)
-	ROUND_00_15	TT2, 8*.Li+6, 32*(8*.Li+6)
-	ROUND_00_15	TT3, 8*.Li+7, 32*(8*.Li+7)
-.set .Li, .Li+1
-.endr
+	ROUND_00_15_P TT0, 4, 128, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 0
+	ROUND_00_15_P TT1, 5, 160, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 0
+	ROUND_00_15_P TT2, 6, 192, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 0
+	ROUND_00_15_P TT3, 7, 224, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 0
 
-.set .Li, 16 
-.rept 48
-	ROUND_16_XX	TT0, .Li
-.set .Li, (.Li+1)
-.endr
+	// Iteration 1 (.Li=1): rounds 8-15
+	TRANSPOSE8_U32_LOAD8 TT0, TT1, TT2, TT3, TT4, TT5, TT6, TT7, \
+			     DATA_PTR + 0*64, \
+			     DATA_PTR + 1*64, \
+			     DATA_PTR + 2*64, \
+			     DATA_PTR + 3*64, \
+			     DATA_PTR + 4*64, \
+			     DATA_PTR + 5*64, \
+			     DATA_PTR + 6*64, \
+			     DATA_PTR + 7*64, \
+			     32
+
+	vmovdqa	[YTMP0], g
+	vmovdqa	[YTMP1], h
+	TRANSPOSE8_U32_PRELOADED TT0, TT1, TT2, TT3, TT4, TT5, TT6, TT7, TMP0, TMP1
+	vmovdqa	TMP1, [rip + .LPSHUFFLE_BYTE_FLIP_MASK]
+	vmovdqa	g, [YTMP0]
+	vpshufb	TT0, TT0, TMP1
+	vpshufb	TT1, TT1, TMP1
+	vpshufb	TT2, TT2, TMP1
+	vpshufb	TT3, TT3, TMP1
+	vpshufb	TT4, TT4, TMP1
+	vpshufb	TT5, TT5, TMP1
+	vpshufb	TT6, TT6, TMP1
+	vpshufb	TT7, TT7, TMP1
+	vmovdqa	h, [YTMP1]
+	vmovdqa	[YTMP0], TT4
+	vmovdqa	[YTMP1], TT5
+	vmovdqa	[YTMP2], TT6
+	vmovdqa	[YTMP3], TT7
+	ROUND_00_15_P TT0, 8, 256, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 0
+	vmovdqa	TT0, [YTMP0]
+	ROUND_00_15_P TT1, 9, 288, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 0
+	vmovdqa	TT1, [YTMP1]
+	ROUND_00_15_P TT2, 10, 320, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 0
+	vmovdqa	TT2, [YTMP2]
+	ROUND_00_15_P TT3, 11, 352, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 0
+	vmovdqa	TT3, [YTMP3]
+	ROUND_00_15_P TT0, 12, 384, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 0
+	ROUND_00_15_P TT1, 13, 416, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 0
+	ROUND_00_15_P TT2, 14, 448, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 0
+	ROUND_00_15_P TT3, 15, 480, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 0
+
+	// Rounds 16-63: message schedule expansion
+	// Round 16 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 16, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 17 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 17, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 18 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 18, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 19 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 19, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 20 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 20, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 21 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 21, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 22 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 22, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 23 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 23, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
+	// Round 24 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 24, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 25 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 25, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 26 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 26, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 27 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 27, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 28 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 28, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 29 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 29, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 30 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 30, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 31 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 31, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
+	// Round 32 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 32, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 33 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 33, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 34 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 34, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 35 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 35, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 36 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 36, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 37 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 37, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 38 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 38, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 39 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 39, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
+	// Round 40 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 40, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 41 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 41, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 42 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 42, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 43 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 43, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 44 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 44, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 45 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 45, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 46 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 46, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 47 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 47, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
+	// Round 48 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 48, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 49 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 49, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 50 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 50, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 51 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 51, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 52 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 52, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 53 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 53, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 54 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 54, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 55 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 55, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
+	// Round 56 (mod 8 = 0)
+	ROUND_16_XX_P TT0, 56, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h
+	// Round 57 (mod 8 = 1)
+	ROUND_16_XX_P TT0, 57, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g
+	// Round 58 (mod 8 = 2)
+	ROUND_16_XX_P TT0, 58, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f
+	// Round 59 (mod 8 = 3)
+	ROUND_16_XX_P TT0, 59, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e
+	// Round 60 (mod 8 = 4)
+	ROUND_16_XX_P TT0, 60, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d
+	// Round 61 (mod 8 = 5)
+	ROUND_16_XX_P TT0, 61, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c
+	// Round 62 (mod 8 = 6)
+	ROUND_16_XX_P TT0, 62, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b
+	// Round 63 (mod 8 = 7)
+	ROUND_16_XX_P TT0, 63, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a
 
 	# add old digest
 	lea TBL,[rip + .LDIGEST_8]
@@ -708,13 +840,136 @@ hashtree_sha256_avx2_x8:
 
 	lea TBL,[rip + .LPADDING_8]
 
-.set .Lpadding, 1
-.set .Li, 0
 .align 16
-.rept 64
-	ROUND_00_15 	TT0,  .Li, 32*.Li
-.set .Li, (.Li + 1)
-.endr
+	// Padding rounds 0-63 (is_padding=1)
+	// Round 0 (mod 8 = 0)
+	ROUND_00_15_P TT0, 0, 0, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 1 (mod 8 = 1)
+	ROUND_00_15_P TT0, 1, 32, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 2 (mod 8 = 2)
+	ROUND_00_15_P TT0, 2, 64, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 3 (mod 8 = 3)
+	ROUND_00_15_P TT0, 3, 96, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 4 (mod 8 = 4)
+	ROUND_00_15_P TT0, 4, 128, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 5 (mod 8 = 5)
+	ROUND_00_15_P TT0, 5, 160, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 6 (mod 8 = 6)
+	ROUND_00_15_P TT0, 6, 192, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 7 (mod 8 = 7)
+	ROUND_00_15_P TT0, 7, 224, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 8 (mod 8 = 0)
+	ROUND_00_15_P TT0, 8, 256, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 9 (mod 8 = 1)
+	ROUND_00_15_P TT0, 9, 288, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 10 (mod 8 = 2)
+	ROUND_00_15_P TT0, 10, 320, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 11 (mod 8 = 3)
+	ROUND_00_15_P TT0, 11, 352, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 12 (mod 8 = 4)
+	ROUND_00_15_P TT0, 12, 384, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 13 (mod 8 = 5)
+	ROUND_00_15_P TT0, 13, 416, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 14 (mod 8 = 6)
+	ROUND_00_15_P TT0, 14, 448, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 15 (mod 8 = 7)
+	ROUND_00_15_P TT0, 15, 480, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 16 (mod 8 = 0)
+	ROUND_00_15_P TT0, 16, 512, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 17 (mod 8 = 1)
+	ROUND_00_15_P TT0, 17, 544, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 18 (mod 8 = 2)
+	ROUND_00_15_P TT0, 18, 576, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 19 (mod 8 = 3)
+	ROUND_00_15_P TT0, 19, 608, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 20 (mod 8 = 4)
+	ROUND_00_15_P TT0, 20, 640, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 21 (mod 8 = 5)
+	ROUND_00_15_P TT0, 21, 672, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 22 (mod 8 = 6)
+	ROUND_00_15_P TT0, 22, 704, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 23 (mod 8 = 7)
+	ROUND_00_15_P TT0, 23, 736, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 24 (mod 8 = 0)
+	ROUND_00_15_P TT0, 24, 768, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 25 (mod 8 = 1)
+	ROUND_00_15_P TT0, 25, 800, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 26 (mod 8 = 2)
+	ROUND_00_15_P TT0, 26, 832, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 27 (mod 8 = 3)
+	ROUND_00_15_P TT0, 27, 864, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 28 (mod 8 = 4)
+	ROUND_00_15_P TT0, 28, 896, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 29 (mod 8 = 5)
+	ROUND_00_15_P TT0, 29, 928, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 30 (mod 8 = 6)
+	ROUND_00_15_P TT0, 30, 960, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 31 (mod 8 = 7)
+	ROUND_00_15_P TT0, 31, 992, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 32 (mod 8 = 0)
+	ROUND_00_15_P TT0, 32, 1024, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 33 (mod 8 = 1)
+	ROUND_00_15_P TT0, 33, 1056, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 34 (mod 8 = 2)
+	ROUND_00_15_P TT0, 34, 1088, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 35 (mod 8 = 3)
+	ROUND_00_15_P TT0, 35, 1120, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 36 (mod 8 = 4)
+	ROUND_00_15_P TT0, 36, 1152, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 37 (mod 8 = 5)
+	ROUND_00_15_P TT0, 37, 1184, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 38 (mod 8 = 6)
+	ROUND_00_15_P TT0, 38, 1216, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 39 (mod 8 = 7)
+	ROUND_00_15_P TT0, 39, 1248, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 40 (mod 8 = 0)
+	ROUND_00_15_P TT0, 40, 1280, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 41 (mod 8 = 1)
+	ROUND_00_15_P TT0, 41, 1312, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 42 (mod 8 = 2)
+	ROUND_00_15_P TT0, 42, 1344, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 43 (mod 8 = 3)
+	ROUND_00_15_P TT0, 43, 1376, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 44 (mod 8 = 4)
+	ROUND_00_15_P TT0, 44, 1408, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 45 (mod 8 = 5)
+	ROUND_00_15_P TT0, 45, 1440, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 46 (mod 8 = 6)
+	ROUND_00_15_P TT0, 46, 1472, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 47 (mod 8 = 7)
+	ROUND_00_15_P TT0, 47, 1504, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 48 (mod 8 = 0)
+	ROUND_00_15_P TT0, 48, 1536, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 49 (mod 8 = 1)
+	ROUND_00_15_P TT0, 49, 1568, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 50 (mod 8 = 2)
+	ROUND_00_15_P TT0, 50, 1600, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 51 (mod 8 = 3)
+	ROUND_00_15_P TT0, 51, 1632, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 52 (mod 8 = 4)
+	ROUND_00_15_P TT0, 52, 1664, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 53 (mod 8 = 5)
+	ROUND_00_15_P TT0, 53, 1696, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 54 (mod 8 = 6)
+	ROUND_00_15_P TT0, 54, 1728, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 55 (mod 8 = 7)
+	ROUND_00_15_P TT0, 55, 1760, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
+	// Round 56 (mod 8 = 0)
+	ROUND_00_15_P TT0, 56, 1792, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, 1
+	// Round 57 (mod 8 = 1)
+	ROUND_00_15_P TT0, 57, 1824, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, 1
+	// Round 58 (mod 8 = 2)
+	ROUND_00_15_P TT0, 58, 1856, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, 1
+	// Round 59 (mod 8 = 3)
+	ROUND_00_15_P TT0, 59, 1888, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, 1
+	// Round 60 (mod 8 = 4)
+	ROUND_00_15_P TT0, 60, 1920, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, 1
+	// Round 61 (mod 8 = 5)
+	ROUND_00_15_P TT0, 61, 1952, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, 1
+	// Round 62 (mod 8 = 6)
+	ROUND_00_15_P TT0, 62, 1984, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, 1
+	// Round 63 (mod 8 = 7)
+	ROUND_00_15_P TT0, 63, 2016, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, 1
 	# add old digest
 	vpaddd	a, a, [rsp + _DIGEST + 0*SZ8]
 	vpaddd	b, b, [rsp + _DIGEST + 1*SZ8]

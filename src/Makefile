@@ -35,7 +35,6 @@ $(shell mkdir -p $(LIB_DIR))
 
 ASFLAGS += -g -fpic
 CFLAGS +=  -g -Wall -Werror -O3
-CLANG_ASFLAGS = -fno-integrated-as
 LDFLAGS += -L .
 testlibs = -lhashtree
 benchlibs = -lhashtree -lm
@@ -78,12 +77,6 @@ ifeq ($(CC), cc)
 		CC = clang
 	else
 		CC = gcc
-	endif
-endif
-
-ifeq ($(CC),clang)
-	ifneq ($(ARM),1)
-		ASFLAGS += $(CLANG_ASFLAGS)
 	endif
 endif
 
