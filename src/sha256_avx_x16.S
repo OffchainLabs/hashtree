@@ -53,14 +53,25 @@ Copyright (c) 2012-2023, Intel Corporation
 #define PADDING		arg5
 #define DIGEST		r11
 
-.equ A,	zmm0
-.equ B,	zmm1
-.equ C,	zmm2
-.equ D,	zmm3
-.equ E,	zmm4
-.equ F,	zmm5
-.equ G,	zmm6
-.equ H,	zmm7
+// Initial register assignments for A-H (used by parameterized macros)
+#define INI_A zmm0
+#define INI_B zmm1
+#define INI_C zmm2
+#define INI_D zmm3
+#define INI_E zmm4
+#define INI_F zmm5
+#define INI_G zmm6
+#define INI_H zmm7
+
+// Aliases for non-macro code (at initial rotation state)
+#define A INI_A
+#define B INI_B
+#define C INI_C
+#define D INI_D
+#define E INI_E
+#define F INI_F
+#define G INI_G
+#define H INI_H
 
 #define T1	zmm8
 #define TMP0	zmm9
@@ -88,22 +99,41 @@ Copyright (c) 2012-2023, Intel Corporation
 #define YW14	ymm30
 #define YW15	ymm31
 
-.equ W0,	zmm16
-.equ W1,	zmm17
-.equ W2,	zmm18
-.equ W3,	zmm19
-.equ W4,	zmm20
-.equ W5,	zmm21
-.equ W6,	zmm22
-.equ W7,	zmm23
-.equ W8,	zmm24
-.equ W9,	zmm25
-.equ W10,	zmm26
-.equ W11,	zmm27
-.equ W12,	zmm28
-.equ W13,	zmm29
-.equ W14,	zmm30
-.equ W15,	zmm31
+// Initial register assignments for W0-W15 (used by parameterized macros)
+#define INI_W0  zmm16
+#define INI_W1  zmm17
+#define INI_W2  zmm18
+#define INI_W3  zmm19
+#define INI_W4  zmm20
+#define INI_W5  zmm21
+#define INI_W6  zmm22
+#define INI_W7  zmm23
+#define INI_W8  zmm24
+#define INI_W9  zmm25
+#define INI_W10 zmm26
+#define INI_W11 zmm27
+#define INI_W12 zmm28
+#define INI_W13 zmm29
+#define INI_W14 zmm30
+#define INI_W15 zmm31
+
+// Aliases for non-macro code (at initial rotation state)
+#define W0  INI_W0
+#define W1  INI_W1
+#define W2  INI_W2
+#define W3  INI_W3
+#define W4  INI_W4
+#define W5  INI_W5
+#define W6  INI_W6
+#define W7  INI_W7
+#define W8  INI_W8
+#define W9  INI_W9
+#define W10 INI_W10
+#define W11 INI_W11
+#define W12 INI_W12
+#define W13 INI_W13
+#define W14 INI_W14
+#define W15 INI_W15
 
 # Macros
 
@@ -283,66 +313,36 @@ Copyright (c) 2012-2023, Intel Corporation
 	vmovdqu32 \r2, \t1			// r2 = {p2 o2 n2 m2  l2 k2 j2 i2  h2 g2 f2 e2  d2 c2 b2 a2}
 .endm
 
-.macro ROTATE_ARGS
-.equ TMP_, H
-.equ H, G
-.equ G, F
-.equ F, E
-.equ E, D
-.equ D, C
-.equ C, B
-.equ B, A
-.equ A, TMP_
-.endm
+// ROTATE_ARGS and ROTATE_ZMMS removed - using parameterized macros with explicit registers instead
 
-.macro ROTATE_ZMMS
-.equ W_, W0
-.equ W0, W1
-.equ W1, W2
-.equ W2, W3
-.equ W3, W4
-.equ W4, W5
-.equ W5, W6
-.equ W6, W7
-.equ W7, W8
-.equ W8, W9
-.equ W9, W10
-.equ W10, W11
-.equ W11, W12
-.equ W12, W13
-.equ W13, W14
-.equ W14, W15
-.equ W15, W_
-.endm
-
-.macro PROCESS_LOOP WT
-.if .Lpadding - 1
-	vpaddd		T1, H, TMP3		// T1 = H + Kt
+// Parameterized PROCESS_LOOP with explicit registers (no rotation)
+.macro PROCESS_LOOP_P WT, ra, rb, rc, rd, re, rf, rg, rh, is_padding
+.if \is_padding - 1
+	vpaddd		T1, \rh, TMP3		// T1 = H + Kt
 .endif
-	vmovdqa32	TMP0, E
-	vprord		TMP1, E, 6 		// ROR_6(E)
-	vprord		TMP2, E, 11 		// ROR_11(E)
-	vprord		TMP3, E, 25 		// ROR_25(E)
-	vpternlogd	TMP0, F, G, 0xCA	// TMP0 = CH(E,F,G)
-.if .Lpadding - 1
+	vmovdqa32	TMP0, \re
+	vprord		TMP1, \re, 6 		// ROR_6(E)
+	vprord		TMP2, \re, 11 		// ROR_11(E)
+	vprord		TMP3, \re, 25 		// ROR_25(E)
+	vpternlogd	TMP0, \rf, \rg, 0xCA	// TMP0 = CH(E,F,G)
+.if \is_padding - 1
 	vpaddd		T1, T1, \WT		// T1 = T1 + Wt
 .else
-	vpaddd		T1, H, \WT		// T1 = H + Wt + Kt
+	vpaddd		T1, \rh, \WT		// T1 = H + Wt + Kt
 .endif
 	vpternlogd	TMP1, TMP2, TMP3, 0x96	// TMP1 = SIGMA1(E)
 	vpaddd		T1, T1, TMP0		// T1 = T1 + CH(E,F,G)
 	vpaddd		T1, T1, TMP1		// T1 = T1 + SIGMA1(E)
-	vpaddd		D, D, T1		// D = D + T1
+	vpaddd		\rd, \rd, T1		// D = D + T1
 
-	vprord		H, A, 2 		// ROR_2(A)
-	vprord		TMP2, A, 13 		// ROR_13(A)
-	vprord		TMP3, A, 22 		// ROR_22(A)
-	vmovdqa32	TMP0, A
-	vpternlogd	TMP0, B, C, 0xE8	// TMP0 = MAJ(A,B,C)
-	vpternlogd	H, TMP2, TMP3, 0x96	// H(T2) = SIGMA0(A)
-	vpaddd		H, H, TMP0		// H(T2) = SIGMA0(A) + MAJ(A,B,C)
-	vpaddd		H, H, T1		// H(A) = H(T2) + T1
-	ROTATE_ARGS
+	vprord		\rh, \ra, 2 		// ROR_2(A)
+	vprord		TMP2, \ra, 13 		// ROR_13(A)
+	vprord		TMP3, \ra, 22 		// ROR_22(A)
+	vmovdqa32	TMP0, \ra
+	vpternlogd	TMP0, \rb, \rc, 0xE8	// TMP0 = MAJ(A,B,C)
+	vpternlogd	\rh, TMP2, TMP3, 0x96	// H(T2) = SIGMA0(A)
+	vpaddd		\rh, \rh, TMP0		// H(T2) = SIGMA0(A) + MAJ(A,B,C)
+	vpaddd		\rh, \rh, T1		// H(A) = H(T2) + T1
 .endm
 
 .macro MSG_SCHED_ROUND_16_63 WT, WTp1, WTp9, WTp14
@@ -1083,25 +1083,267 @@ hashtree_sha256_avx512_x16:
 	TRANSPOSE16_U32_PRELOADED W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, \
                                   W11, W12, W13, W14, W15, TMP0, TMP1, TMP4, TMP5
 
-.rept 16
-       	vpshufb	W0, W0, TMP2
-	ROTATE_ZMMS
-.endr
+	// Byte swap W0-W15 (expanded from .rept 16 + ROTATE_ZMMS)
+	vpshufb	INI_W0, INI_W0, TMP2
+	vpshufb	INI_W1, INI_W1, TMP2
+	vpshufb	INI_W2, INI_W2, TMP2
+	vpshufb	INI_W3, INI_W3, TMP2
+	vpshufb	INI_W4, INI_W4, TMP2
+	vpshufb	INI_W5, INI_W5, TMP2
+	vpshufb	INI_W6, INI_W6, TMP2
+	vpshufb	INI_W7, INI_W7, TMP2
+	vpshufb	INI_W8, INI_W8, TMP2
+	vpshufb	INI_W9, INI_W9, TMP2
+	vpshufb	INI_W10, INI_W10, TMP2
+	vpshufb	INI_W11, INI_W11, TMP2
+	vpshufb	INI_W12, INI_W12, TMP2
+	vpshufb	INI_W13, INI_W13, TMP2
+	vpshufb	INI_W14, INI_W14, TMP2
+	vpshufb	INI_W15, INI_W15, TMP2
 
-.set .LI, 0
-.rept 48
-	PROCESS_LOOP W0
-	.set .LI, .LI+1
-	vmovdqa32	TMP3, [TBL + 64*.LI]	// Next Kt
-	MSG_SCHED_ROUND_16_63 W0, W1, W9, W14
-	ROTATE_ZMMS
-.endr
-.rept 16
-	PROCESS_LOOP W0
-	.set .LI, .LI+1
-	vmovdqa32	TMP3, [TBL + 64*.LI]	// Next Kt
-	ROTATE_ZMMS
-.endr
+	// Rounds 0-47: PROCESS_LOOP + MSG_SCHED (expanded)
+	// Each round uses A-H rotation (8-cycle) and W rotation (16-cycle)
+	// Round 0: A-H state 0, W state 0
+	PROCESS_LOOP_P INI_W0, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*1]
+	MSG_SCHED_ROUND_16_63 INI_W0, INI_W1, INI_W9, INI_W14
+	// Round 1: A-H state 1, W state 1
+	PROCESS_LOOP_P INI_W1, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*2]
+	MSG_SCHED_ROUND_16_63 INI_W1, INI_W2, INI_W10, INI_W15
+	// Round 2: A-H state 2, W state 2
+	PROCESS_LOOP_P INI_W2, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*3]
+	MSG_SCHED_ROUND_16_63 INI_W2, INI_W3, INI_W11, INI_W0
+	// Round 3: A-H state 3, W state 3
+	PROCESS_LOOP_P INI_W3, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*4]
+	MSG_SCHED_ROUND_16_63 INI_W3, INI_W4, INI_W12, INI_W1
+	// Round 4: A-H state 4, W state 4
+	PROCESS_LOOP_P INI_W4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*5]
+	MSG_SCHED_ROUND_16_63 INI_W4, INI_W5, INI_W13, INI_W2
+	// Round 5: A-H state 5, W state 5
+	PROCESS_LOOP_P INI_W5, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*6]
+	MSG_SCHED_ROUND_16_63 INI_W5, INI_W6, INI_W14, INI_W3
+	// Round 6: A-H state 6, W state 6
+	PROCESS_LOOP_P INI_W6, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*7]
+	MSG_SCHED_ROUND_16_63 INI_W6, INI_W7, INI_W15, INI_W4
+	// Round 7: A-H state 7, W state 7
+	PROCESS_LOOP_P INI_W7, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*8]
+	MSG_SCHED_ROUND_16_63 INI_W7, INI_W8, INI_W0, INI_W5
+	// Round 8: A-H state 0, W state 8
+	PROCESS_LOOP_P INI_W8, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*9]
+	MSG_SCHED_ROUND_16_63 INI_W8, INI_W9, INI_W1, INI_W6
+	// Round 9: A-H state 1, W state 9
+	PROCESS_LOOP_P INI_W9, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*10]
+	MSG_SCHED_ROUND_16_63 INI_W9, INI_W10, INI_W2, INI_W7
+	// Round 10: A-H state 2, W state 10
+	PROCESS_LOOP_P INI_W10, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*11]
+	MSG_SCHED_ROUND_16_63 INI_W10, INI_W11, INI_W3, INI_W8
+	// Round 11: A-H state 3, W state 11
+	PROCESS_LOOP_P INI_W11, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*12]
+	MSG_SCHED_ROUND_16_63 INI_W11, INI_W12, INI_W4, INI_W9
+	// Round 12: A-H state 4, W state 12
+	PROCESS_LOOP_P INI_W12, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*13]
+	MSG_SCHED_ROUND_16_63 INI_W12, INI_W13, INI_W5, INI_W10
+	// Round 13: A-H state 5, W state 13
+	PROCESS_LOOP_P INI_W13, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*14]
+	MSG_SCHED_ROUND_16_63 INI_W13, INI_W14, INI_W6, INI_W11
+	// Round 14: A-H state 6, W state 14
+	PROCESS_LOOP_P INI_W14, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*15]
+	MSG_SCHED_ROUND_16_63 INI_W14, INI_W15, INI_W7, INI_W12
+	// Round 15: A-H state 7, W state 15
+	PROCESS_LOOP_P INI_W15, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*16]
+	MSG_SCHED_ROUND_16_63 INI_W15, INI_W0, INI_W8, INI_W13
+	// Round 16: A-H state 0, W state 0
+	PROCESS_LOOP_P INI_W0, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*17]
+	MSG_SCHED_ROUND_16_63 INI_W0, INI_W1, INI_W9, INI_W14
+	// Round 17: A-H state 1, W state 1
+	PROCESS_LOOP_P INI_W1, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*18]
+	MSG_SCHED_ROUND_16_63 INI_W1, INI_W2, INI_W10, INI_W15
+	// Round 18: A-H state 2, W state 2
+	PROCESS_LOOP_P INI_W2, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*19]
+	MSG_SCHED_ROUND_16_63 INI_W2, INI_W3, INI_W11, INI_W0
+	// Round 19: A-H state 3, W state 3
+	PROCESS_LOOP_P INI_W3, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*20]
+	MSG_SCHED_ROUND_16_63 INI_W3, INI_W4, INI_W12, INI_W1
+	// Round 20: A-H state 4, W state 4
+	PROCESS_LOOP_P INI_W4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*21]
+	MSG_SCHED_ROUND_16_63 INI_W4, INI_W5, INI_W13, INI_W2
+	// Round 21: A-H state 5, W state 5
+	PROCESS_LOOP_P INI_W5, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*22]
+	MSG_SCHED_ROUND_16_63 INI_W5, INI_W6, INI_W14, INI_W3
+	// Round 22: A-H state 6, W state 6
+	PROCESS_LOOP_P INI_W6, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*23]
+	MSG_SCHED_ROUND_16_63 INI_W6, INI_W7, INI_W15, INI_W4
+	// Round 23: A-H state 7, W state 7
+	PROCESS_LOOP_P INI_W7, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*24]
+	MSG_SCHED_ROUND_16_63 INI_W7, INI_W8, INI_W0, INI_W5
+	// Round 24: A-H state 0, W state 8
+	PROCESS_LOOP_P INI_W8, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*25]
+	MSG_SCHED_ROUND_16_63 INI_W8, INI_W9, INI_W1, INI_W6
+	// Round 25: A-H state 1, W state 9
+	PROCESS_LOOP_P INI_W9, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*26]
+	MSG_SCHED_ROUND_16_63 INI_W9, INI_W10, INI_W2, INI_W7
+	// Round 26: A-H state 2, W state 10
+	PROCESS_LOOP_P INI_W10, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*27]
+	MSG_SCHED_ROUND_16_63 INI_W10, INI_W11, INI_W3, INI_W8
+	// Round 27: A-H state 3, W state 11
+	PROCESS_LOOP_P INI_W11, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*28]
+	MSG_SCHED_ROUND_16_63 INI_W11, INI_W12, INI_W4, INI_W9
+	// Round 28: A-H state 4, W state 12
+	PROCESS_LOOP_P INI_W12, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*29]
+	MSG_SCHED_ROUND_16_63 INI_W12, INI_W13, INI_W5, INI_W10
+	// Round 29: A-H state 5, W state 13
+	PROCESS_LOOP_P INI_W13, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*30]
+	MSG_SCHED_ROUND_16_63 INI_W13, INI_W14, INI_W6, INI_W11
+	// Round 30: A-H state 6, W state 14
+	PROCESS_LOOP_P INI_W14, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*31]
+	MSG_SCHED_ROUND_16_63 INI_W14, INI_W15, INI_W7, INI_W12
+	// Round 31: A-H state 7, W state 15
+	PROCESS_LOOP_P INI_W15, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*32]
+	MSG_SCHED_ROUND_16_63 INI_W15, INI_W0, INI_W8, INI_W13
+	// Round 32: A-H state 0, W state 0
+	PROCESS_LOOP_P INI_W0, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*33]
+	MSG_SCHED_ROUND_16_63 INI_W0, INI_W1, INI_W9, INI_W14
+	// Round 33: A-H state 1, W state 1
+	PROCESS_LOOP_P INI_W1, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*34]
+	MSG_SCHED_ROUND_16_63 INI_W1, INI_W2, INI_W10, INI_W15
+	// Round 34: A-H state 2, W state 2
+	PROCESS_LOOP_P INI_W2, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*35]
+	MSG_SCHED_ROUND_16_63 INI_W2, INI_W3, INI_W11, INI_W0
+	// Round 35: A-H state 3, W state 3
+	PROCESS_LOOP_P INI_W3, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*36]
+	MSG_SCHED_ROUND_16_63 INI_W3, INI_W4, INI_W12, INI_W1
+	// Round 36: A-H state 4, W state 4
+	PROCESS_LOOP_P INI_W4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*37]
+	MSG_SCHED_ROUND_16_63 INI_W4, INI_W5, INI_W13, INI_W2
+	// Round 37: A-H state 5, W state 5
+	PROCESS_LOOP_P INI_W5, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*38]
+	MSG_SCHED_ROUND_16_63 INI_W5, INI_W6, INI_W14, INI_W3
+	// Round 38: A-H state 6, W state 6
+	PROCESS_LOOP_P INI_W6, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*39]
+	MSG_SCHED_ROUND_16_63 INI_W6, INI_W7, INI_W15, INI_W4
+	// Round 39: A-H state 7, W state 7
+	PROCESS_LOOP_P INI_W7, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*40]
+	MSG_SCHED_ROUND_16_63 INI_W7, INI_W8, INI_W0, INI_W5
+	// Round 40: A-H state 0, W state 8
+	PROCESS_LOOP_P INI_W8, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*41]
+	MSG_SCHED_ROUND_16_63 INI_W8, INI_W9, INI_W1, INI_W6
+	// Round 41: A-H state 1, W state 9
+	PROCESS_LOOP_P INI_W9, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*42]
+	MSG_SCHED_ROUND_16_63 INI_W9, INI_W10, INI_W2, INI_W7
+	// Round 42: A-H state 2, W state 10
+	PROCESS_LOOP_P INI_W10, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*43]
+	MSG_SCHED_ROUND_16_63 INI_W10, INI_W11, INI_W3, INI_W8
+	// Round 43: A-H state 3, W state 11
+	PROCESS_LOOP_P INI_W11, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*44]
+	MSG_SCHED_ROUND_16_63 INI_W11, INI_W12, INI_W4, INI_W9
+	// Round 44: A-H state 4, W state 12
+	PROCESS_LOOP_P INI_W12, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*45]
+	MSG_SCHED_ROUND_16_63 INI_W12, INI_W13, INI_W5, INI_W10
+	// Round 45: A-H state 5, W state 13
+	PROCESS_LOOP_P INI_W13, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*46]
+	MSG_SCHED_ROUND_16_63 INI_W13, INI_W14, INI_W6, INI_W11
+	// Round 46: A-H state 6, W state 14
+	PROCESS_LOOP_P INI_W14, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*47]
+	MSG_SCHED_ROUND_16_63 INI_W14, INI_W15, INI_W7, INI_W12
+	// Round 47: A-H state 7, W state 15
+	PROCESS_LOOP_P INI_W15, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*48]
+	MSG_SCHED_ROUND_16_63 INI_W15, INI_W0, INI_W8, INI_W13
+
+	// Rounds 48-63: PROCESS_LOOP only (no message schedule)
+	// Round 48: A-H state 0, W state 0
+	PROCESS_LOOP_P INI_W0, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*49]
+	// Round 49: A-H state 1, W state 1
+	PROCESS_LOOP_P INI_W1, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*50]
+	// Round 50: A-H state 2, W state 2
+	PROCESS_LOOP_P INI_W2, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*51]
+	// Round 51: A-H state 3, W state 3
+	PROCESS_LOOP_P INI_W3, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*52]
+	// Round 52: A-H state 4, W state 4
+	PROCESS_LOOP_P INI_W4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*53]
+	// Round 53: A-H state 5, W state 5
+	PROCESS_LOOP_P INI_W5, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*54]
+	// Round 54: A-H state 6, W state 6
+	PROCESS_LOOP_P INI_W6, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*55]
+	// Round 55: A-H state 7, W state 7
+	PROCESS_LOOP_P INI_W7, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
+	vmovdqa32	TMP3, [TBL + 64*56]
+	// Round 56: A-H state 0, W state 8
+	PROCESS_LOOP_P INI_W8, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 0
+	vmovdqa32	TMP3, [TBL + 64*57]
+	// Round 57: A-H state 1, W state 9
+	PROCESS_LOOP_P INI_W9, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 0
+	vmovdqa32	TMP3, [TBL + 64*58]
+	// Round 58: A-H state 2, W state 10
+	PROCESS_LOOP_P INI_W10, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 0
+	vmovdqa32	TMP3, [TBL + 64*59]
+	// Round 59: A-H state 3, W state 11
+	PROCESS_LOOP_P INI_W11, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 0
+	vmovdqa32	TMP3, [TBL + 64*60]
+	// Round 60: A-H state 4, W state 12
+	PROCESS_LOOP_P INI_W12, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 0
+	vmovdqa32	TMP3, [TBL + 64*61]
+	// Round 61: A-H state 5, W state 13
+	PROCESS_LOOP_P INI_W13, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 0
+	vmovdqa32	TMP3, [TBL + 64*62]
+	// Round 62: A-H state 6, W state 14
+	PROCESS_LOOP_P INI_W14, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 0
+	vmovdqa32	TMP3, [TBL + 64*63]
+	// Round 63: A-H state 7, W state 15
+	PROCESS_LOOP_P INI_W15, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 0
 
 	# Add old digest
 	vpaddd		A, A, [DIGEST + 0*64]
@@ -1127,14 +1369,199 @@ hashtree_sha256_avx512_x16:
 	vmovdqa32	TMP5, [rip + .LPSHUFFLE_TRANSPOSE_MASK3]
 	vmovdqa32	TMP6, [rip + .LPSHUFFLE_TRANSPOSE_MASK4]
 
-	# Rounds with padding
-.set .Lpadding, 1
-.set .LI, 0
-.rept 64
-	vmovdqa32	TMP4, [PADDING + 64*.LI]	// W + K
-	PROCESS_LOOP TMP4
-	.set .LI, .LI+1
-.endr
+	# Rounds with padding (64 rounds, manually unrolled)
+	# Round 0: A=INI_A, B=INI_B, C=INI_C, D=INI_D, E=INI_E, F=INI_F, G=INI_G, H=INI_H
+	vmovdqa32	TMP4, [PADDING + 64*0]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 1: A=INI_H, B=INI_A, C=INI_B, D=INI_C, E=INI_D, F=INI_E, G=INI_F, H=INI_G
+	vmovdqa32	TMP4, [PADDING + 64*1]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 2: A=INI_G, B=INI_H, C=INI_A, D=INI_B, E=INI_C, F=INI_D, G=INI_E, H=INI_F
+	vmovdqa32	TMP4, [PADDING + 64*2]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 3: A=INI_F, B=INI_G, C=INI_H, D=INI_A, E=INI_B, F=INI_C, G=INI_D, H=INI_E
+	vmovdqa32	TMP4, [PADDING + 64*3]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 4: A=INI_E, B=INI_F, C=INI_G, D=INI_H, E=INI_A, F=INI_B, G=INI_C, H=INI_D
+	vmovdqa32	TMP4, [PADDING + 64*4]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 5: A=INI_D, B=INI_E, C=INI_F, D=INI_G, E=INI_H, F=INI_A, G=INI_B, H=INI_C
+	vmovdqa32	TMP4, [PADDING + 64*5]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 6: A=INI_C, B=INI_D, C=INI_E, D=INI_F, E=INI_G, F=INI_H, G=INI_A, H=INI_B
+	vmovdqa32	TMP4, [PADDING + 64*6]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 7: A=INI_B, B=INI_C, C=INI_D, D=INI_E, E=INI_F, F=INI_G, G=INI_H, H=INI_A
+	vmovdqa32	TMP4, [PADDING + 64*7]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 8: A=INI_A, B=INI_B, C=INI_C, D=INI_D, E=INI_E, F=INI_F, G=INI_G, H=INI_H
+	vmovdqa32	TMP4, [PADDING + 64*8]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 9
+	vmovdqa32	TMP4, [PADDING + 64*9]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 10
+	vmovdqa32	TMP4, [PADDING + 64*10]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 11
+	vmovdqa32	TMP4, [PADDING + 64*11]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 12
+	vmovdqa32	TMP4, [PADDING + 64*12]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 13
+	vmovdqa32	TMP4, [PADDING + 64*13]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 14
+	vmovdqa32	TMP4, [PADDING + 64*14]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 15
+	vmovdqa32	TMP4, [PADDING + 64*15]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 16
+	vmovdqa32	TMP4, [PADDING + 64*16]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 17
+	vmovdqa32	TMP4, [PADDING + 64*17]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 18
+	vmovdqa32	TMP4, [PADDING + 64*18]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 19
+	vmovdqa32	TMP4, [PADDING + 64*19]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 20
+	vmovdqa32	TMP4, [PADDING + 64*20]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 21
+	vmovdqa32	TMP4, [PADDING + 64*21]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 22
+	vmovdqa32	TMP4, [PADDING + 64*22]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 23
+	vmovdqa32	TMP4, [PADDING + 64*23]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 24
+	vmovdqa32	TMP4, [PADDING + 64*24]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 25
+	vmovdqa32	TMP4, [PADDING + 64*25]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 26
+	vmovdqa32	TMP4, [PADDING + 64*26]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 27
+	vmovdqa32	TMP4, [PADDING + 64*27]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 28
+	vmovdqa32	TMP4, [PADDING + 64*28]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 29
+	vmovdqa32	TMP4, [PADDING + 64*29]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 30
+	vmovdqa32	TMP4, [PADDING + 64*30]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 31
+	vmovdqa32	TMP4, [PADDING + 64*31]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 32
+	vmovdqa32	TMP4, [PADDING + 64*32]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 33
+	vmovdqa32	TMP4, [PADDING + 64*33]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 34
+	vmovdqa32	TMP4, [PADDING + 64*34]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 35
+	vmovdqa32	TMP4, [PADDING + 64*35]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 36
+	vmovdqa32	TMP4, [PADDING + 64*36]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 37
+	vmovdqa32	TMP4, [PADDING + 64*37]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 38
+	vmovdqa32	TMP4, [PADDING + 64*38]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 39
+	vmovdqa32	TMP4, [PADDING + 64*39]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 40
+	vmovdqa32	TMP4, [PADDING + 64*40]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 41
+	vmovdqa32	TMP4, [PADDING + 64*41]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 42
+	vmovdqa32	TMP4, [PADDING + 64*42]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 43
+	vmovdqa32	TMP4, [PADDING + 64*43]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 44
+	vmovdqa32	TMP4, [PADDING + 64*44]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 45
+	vmovdqa32	TMP4, [PADDING + 64*45]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 46
+	vmovdqa32	TMP4, [PADDING + 64*46]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 47
+	vmovdqa32	TMP4, [PADDING + 64*47]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 48
+	vmovdqa32	TMP4, [PADDING + 64*48]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 49
+	vmovdqa32	TMP4, [PADDING + 64*49]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 50
+	vmovdqa32	TMP4, [PADDING + 64*50]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 51
+	vmovdqa32	TMP4, [PADDING + 64*51]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 52
+	vmovdqa32	TMP4, [PADDING + 64*52]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 53
+	vmovdqa32	TMP4, [PADDING + 64*53]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 54
+	vmovdqa32	TMP4, [PADDING + 64*54]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 55
+	vmovdqa32	TMP4, [PADDING + 64*55]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
+	# Round 56
+	vmovdqa32	TMP4, [PADDING + 64*56]
+	PROCESS_LOOP_P TMP4, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, 1
+	# Round 57
+	vmovdqa32	TMP4, [PADDING + 64*57]
+	PROCESS_LOOP_P TMP4, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, 1
+	# Round 58
+	vmovdqa32	TMP4, [PADDING + 64*58]
+	PROCESS_LOOP_P TMP4, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, INI_F, 1
+	# Round 59
+	vmovdqa32	TMP4, [PADDING + 64*59]
+	PROCESS_LOOP_P TMP4, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, INI_E, 1
+	# Round 60
+	vmovdqa32	TMP4, [PADDING + 64*60]
+	PROCESS_LOOP_P TMP4, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, INI_D, 1
+	# Round 61
+	vmovdqa32	TMP4, [PADDING + 64*61]
+	PROCESS_LOOP_P TMP4, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, INI_C, 1
+	# Round 62
+	vmovdqa32	TMP4, [PADDING + 64*62]
+	PROCESS_LOOP_P TMP4, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, INI_B, 1
+	# Round 63
+	vmovdqa32	TMP4, [PADDING + 64*63]
+	PROCESS_LOOP_P TMP4, INI_B, INI_C, INI_D, INI_E, INI_F, INI_G, INI_H, INI_A, 1
 	vmovdqa32	W8, [rip + .LPSHUFFLE_BYTE_FLIP_MASK]
 
 	# Add old digest
@@ -1151,10 +1578,15 @@ hashtree_sha256_avx512_x16:
 	TRANSPOSE_8x16_U32 A, B, C, D, E, F, G, H,\
 		TMP0, TMP1, TMP2, TMP3, TMP5, TMP6
 
-.rept 8
-       	vpshufb	A, A, W8
-	ROTATE_ARGS
-.endr
+	# Byte swap all 8 registers (unrolled from .rept 8 with ROTATE_ARGS)
+	vpshufb	INI_A, INI_A, W8
+	vpshufb	INI_H, INI_H, W8
+	vpshufb	INI_G, INI_G, W8
+	vpshufb	INI_F, INI_F, W8
+	vpshufb	INI_E, INI_E, W8
+	vpshufb	INI_D, INI_D, W8
+	vpshufb	INI_C, INI_C, W8
+	vpshufb	INI_B, INI_B, W8
 
 	vmovdqu32 	[OUTPUT_PTR + 0*64], A
 	vmovdqu32 	[OUTPUT_PTR + 1*64], B

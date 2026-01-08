@@ -97,311 +97,259 @@ Copyright (c) 2012-2023, Intel Corporation
 	vpshufb     \dst, \dst, \msk
 .endm
 
-.equ X0, xmm4
-.equ X1, xmm5
-.equ X2, xmm6
-.equ X3, xmm7
+#define INI_X0 xmm4
+#define INI_X1 xmm5
+#define INI_X2 xmm6
+#define INI_X3 xmm7
 
-.equiv XTMP0, xmm0
-.equiv XTMP1, xmm1
-.equiv XTMP2, xmm2
-.equiv XTMP3, xmm3
-.equiv XTMP4, xmm8
-.equiv XFER, xmm9
-.equiv XTMP5, xmm11
+#define XTMP0 xmm0
+#define XTMP1 xmm1
+#define XTMP2 xmm2
+#define XTMP3 xmm3
+#define XTMP4 xmm8
+#define XFER xmm9
+#define XTMP5 xmm11
 
-.equiv SHUF_00BA,	xmm10 // shuffle xBxA -> 00BA
-.equiv SHUF_DC00,	xmm12 // shuffle xDxC -> DC00
-.equiv BYTE_FLIP_MASK,	xmm13
+#define SHUF_00BA	xmm10 // shuffle xBxA -> 00BA
+#define SHUF_DC00	xmm12 // shuffle xDxC -> DC00
+#define BYTE_FLIP_MASK	xmm13
 
 #ifdef __WIN64__
-                    .equ OUTPUT_PTR, rcx            // 1st arg
-                    .equ DATA_PTR, rdx              // 2nd arg
-                    .equ d_, ebp                    
-                    .equiv count, r8                // 3rd arg
+                    #define OUTPUT_PTR rcx            // 1st arg
+                    #define DATA_PTR rdx              // 2nd arg
+                    #define INI_d ebp
+                    #define count r8                  // 3rd arg
 
-                    .equ TBL, rsi
-                    .equ c_, edi
+                    #define TBL rsi
+                    #define INI_c edi
                     #define _XMM_SAVE 64
                     #define stack_size 192
 #else
-                    .equ OUTPUT_PTR, rdi            // 1st arg
-                    .equ DATA_PTR, rsi              // 2nd arg
-                    .equ c_, ebp                    
-                    .equiv count, rdx               // 3rd arg
+                    #define OUTPUT_PTR rdi            // 1st arg
+                    #define DATA_PTR rsi              // 2nd arg
+                    #define INI_c ebp
+                    #define count rdx                 // 3rd arg
 
-                    .equ TBL, rcx
-                    .equ d_, r8d     
+                    #define TBL rcx
+                    #define INI_d r8d
                     #define stack_size 88
 #endif
 
 #define _DIGEST 32
 
-.equ a_, eax
-.equ b_, ebx
-.equ e_, r9d
-.equ f_, r10d
-.equ g_, r11d
-.equ h_, r12d
+#define INI_a eax
+#define INI_b ebx
+#define INI_e r9d
+#define INI_f r10d
+#define INI_g r11d
+#define INI_h r12d
 
-.equiv y0, r13d
-.equiv y1, r14d
-.equiv y2, r15d
+#define y0 r13d
+#define y1 r14d
+#define y2 r15d
 
+// These aliases are used for non-macro code where rotation state is at initial
+#define a_ INI_a
+#define b_ INI_b
+#define c_ INI_c
+#define d_ INI_d
+#define e_ INI_e
+#define f_ INI_f
+#define g_ INI_g
+#define h_ INI_h
+#define X0 INI_X0
+#define X1 INI_X1
+#define X2 INI_X2
+#define X3 INI_X3
 
-.macro rotate_Xs
-.equ X_, X0
-.equ X0, X1
-.equ X1, X2
-.equ X2, X3
-.equ X3, X_
-.endm
+// Rotation macros removed - using parameterized macros instead
 
-.macro ROTATE_ARGS
-.equ TMP_, h_
-.equ h_, g_
-.equ g_, f_
-.equ f_, e_
-.equ e_, d_
-.equ d_, c_
-.equ c_, b_
-.equ b_, a_
-.equ a_, TMP_
-.endm
-
-.macro FOUR_ROUNDS_AND_SCHED
-		//// compute s0 four at a time and s1 two at a time
-		//// compute W[-16] + W[-7] 4 at a time
-		//vmovdqa	XTMP0, X3
-	mov	y0, e_		// y0 = e
-	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-	mov	y1, a_		// y1 = a
-		vpalignr	XTMP0, X3, X2, 4	// XTMP0 = W[-7]
-	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
-	xor	y0, e_		// y0 = e ^ (e >> (25-11))
-	mov	y2, f_		// y2 = f
-	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-		//vmovdqa	XTMP1, X1
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
-	xor	y2, g_		// y2 = f^g
-		vpaddd	XTMP0, XTMP0, X0	// XTMP0 = W[-7] + W[-16]
-	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
-	and	y2, e_		// y2 = (f^g)&e
-	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-		//// compute s0
-		vpalignr	XTMP1, X1, X0, 4	// XTMP1 = W[-15]
-	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
-	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
-	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
-
-	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
-	add	y2, y0		// y2 = S1 + CH
-	add	y2, [rsp + 0*4]	// y2 = k + w + S1 + CH
-
-	mov	y0, a_		// y0 = a
-	add	h_, y2		// h = h + S1 + CH + k + w
-	mov	y2, a_		// y2 = a
-
+// Parameterized FOUR_ROUNDS_AND_SCHED
+// Takes 12 params: 8 GPR (a-h) and 4 XMM (x0-x3)
+// After this macro: GPR state rotates by 4 (a,b,c,d,e,f,g,h) -> (e,f,g,h,a,b,c,d)
+//                   XMM state rotates by 1 (x0,x1,x2,x3) -> (x1,x2,x3,x0)
+.macro FOUR_ROUNDS_AND_SCHED_P ra, rb, rc, rd, re, rf, rg, rh, x0, x1, x2, x3
+	// Round 0: a=ra, b=rb, c=rc, d=rd, e=re, f=rf, g=rg, h=rh
+	mov	y0, \re
+	MY_ROR	y0, (25-11)
+	mov	y1, \ra
+		vpalignr	XTMP0, \x3, \x2, 4
+	MY_ROR	y1, (22-13)
+	xor	y0, \re
+	mov	y2, \rf
+	MY_ROR	y0, (11-6)
+	xor	y1, \ra
+	xor	y2, \rg
+		vpaddd	XTMP0, XTMP0, \x0
+	xor	y0, \re
+	and	y2, \re
+	MY_ROR	y1, (13-2)
+		vpalignr	XTMP1, \x1, \x0, 4
+	xor	y1, \ra
+	MY_ROR	y0, 6
+	xor	y2, \rg
+	MY_ROR	y1, 2
+	add	y2, y0
+	add	y2, [rsp + 0*4]
+	mov	y0, \ra
+	add	\rh, y2
+	mov	y2, \ra
 		vpsrld	XTMP2, XTMP1, 7
-
-	or	y0, c_		// y0 = a|c
-	add	d_, h_		// d = d + h + S1 + CH + k + w
-	and	y2, c_		// y2 = a&c
-
+	or	y0, \rc
+	add	\rd, \rh
+	and	y2, \rc
 		vpslld	XTMP3, XTMP1, (32-7)
+	and	y0, \rb
+	add	\rh, y1
+		vpor	XTMP3, XTMP3, XTMP2
+	or	y0, y2
+	add	\rh, y0
 
-	and	y0, b_		// y0 = (a|c)&b
-	add	h_, y1		// h = h + S1 + CH + k + w + S0
-
-		vpor	XTMP3, XTMP3, XTMP2	// XTMP1 = W[-15] MY_ROR 7
-
-	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
-	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
-
-ROTATE_ARGS
-
-	mov	y0, e_		// y0 = e
-	mov	y1, a_		// y1 = a
-
-
-	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-	xor	y0, e_		// y0 = e ^ (e >> (25-11))
-	mov	y2, f_		// y2 = f
-	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
-
+	// Round 1: a=rh, b=ra, c=rb, d=rc, e=rd, f=re, g=rf, h=rg
+	mov	y0, \rd
+	mov	y1, \rh
+	MY_ROR	y0, (25-11)
+	xor	y0, \rd
+	mov	y2, \re
+	MY_ROR	y1, (22-13)
 		vpsrld	XTMP2, XTMP1,18
-
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
-	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-	xor	y2, g_		// y2 = f^g
-
-		vpsrld	XTMP4, XTMP1, 3	// XTMP4 = W[-15] >> 3
-
-	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
-	and	y2, e_		// y2 = (f^g)&e
-	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
-
+	xor	y1, \rh
+	MY_ROR	y0, (11-6)
+	xor	y2, \rf
+		vpsrld	XTMP4, XTMP1, 3
+	MY_ROR	y1, (13-2)
+	xor	y0, \rd
+	and	y2, \rd
+	MY_ROR	y0, 6
 		vpslld	XTMP1, XTMP1, (32-18)
-
-	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
-	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
-
+	xor	y1, \rh
+	xor	y2, \rf
 		vpxor	XTMP3, XTMP3, XTMP1
+	add	y2, y0
+	add	y2, [rsp + 1*4]
+	MY_ROR	y1, 2
+		vpxor	XTMP3, XTMP3, XTMP2
+	mov	y0, \rh
+	add	\rg, y2
+	mov	y2, \rh
+		vpxor	XTMP1, XTMP3, XTMP4
+	or	y0, \rb
+	add	\rc, \rg
+	and	y2, \rb
+		vpshufd	XTMP2, \x3, 0b11111010
+	and	y0, \ra
+	add	\rg, y1
+		vpaddd	XTMP0, XTMP0, XTMP1
+	or	y0, y2
+	add	\rg, y0
 
-	add	y2, y0		// y2 = S1 + CH
-	add	y2, [rsp + 1*4]	// y2 = k + w + S1 + CH
-	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
-
-		vpxor	XTMP3, XTMP3, XTMP2	// XTMP1 = W[-15] MY_ROR 7 ^ W[-15] MY_ROR 18
-
-	mov	y0, a_		// y0 = a
-	add	h_, y2		// h = h + S1 + CH + k + w
-	mov	y2, a_		// y2 = a
-
-		vpxor	XTMP1, XTMP3, XTMP4	// XTMP1 = s0
-
-	or	y0, c_		// y0 = a|c
-	add	d_, h_		// d = d + h + S1 + CH + k + w
-	and	y2, c_		// y2 = a&c
-		//// compute low s1
-		vpshufd	XTMP2, X3, 0b11111010	// XTMP2 = W[-2] {BBAA}
-	and	y0, b_		// y0 = (a|c)&b
-	add	h_, y1		// h = h + S1 + CH + k + w + S0
-		vpaddd	XTMP0, XTMP0, XTMP1	// XTMP0 = W[-16] + W[-7] + s0
-	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
-	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
-
-ROTATE_ARGS
-		//vmovdqa	XTMP3, XTMP2	// XTMP3 = W[-2] {BBAA}
-
-	mov	y0, e_		// y0 = e
-	mov	y1, a_		// y1 = a
-	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-
-		//vmovdqa	XTMP4, XTMP2	// XTMP4 = W[-2] {BBAA}
-
-	xor	y0, e_		// y0 = e ^ (e >> (25-11))
-	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
-	mov	y2, f_		// y2 = f
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
-	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-
-		vpsrld	XTMP4, XTMP2, 10	// XTMP4 = W[-2] >> 10 {BBAA}
-
-	xor	y2, g_		// y2 = f^g
-
-		vpsrlq	XTMP3, XTMP2, 19	// XTMP3 = W[-2] MY_ROR 19 {xBxA}
-
-	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
-	and	y2, e_		// y2 = (f^g)&e
-
-		vpsrlq	XTMP2, XTMP2, 17	// XTMP2 = W[-2] MY_ROR 17 {xBxA}
-
-	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
-	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
-	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
+	// Round 2: a=rg, b=rh, c=ra, d=rb, e=rc, f=rd, g=re, h=rf
+	mov	y0, \rc
+	mov	y1, \rg
+	MY_ROR	y0, (25-11)
+	xor	y0, \rc
+	MY_ROR	y1, (22-13)
+	mov	y2, \rd
+	xor	y1, \rg
+	MY_ROR	y0, (11-6)
+		vpsrld	XTMP4, XTMP2, 10
+	xor	y2, \re
+		vpsrlq	XTMP3, XTMP2, 19
+	xor	y0, \rc
+	and	y2, \rc
+		vpsrlq	XTMP2, XTMP2, 17
+	MY_ROR	y1, (13-2)
+	xor	y1, \rg
+	xor	y2, \re
+	MY_ROR	y0, 6
 		vpxor	XTMP2, XTMP2, XTMP3
-	add	y2, y0		// y2 = S1 + CH
-	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
-	add	y2, [rsp + 2*4]	// y2 = k + w + S1 + CH
-		vpxor	XTMP4, XTMP4, XTMP2	// XTMP4 = s1 {xBxA}
-	mov	y0, a_		// y0 = a
-	add	h_, y2		// h = h + S1 + CH + k + w
-	mov	y2, a_		// y2 = a
-		vpshufb	XTMP4, XTMP4, SHUF_00BA	// XTMP4 = s1 {00BA}
-	or	y0, c_		// y0 = a|c
-	add	d_, h_		// d = d + h + S1 + CH + k + w
-	and	y2, c_		// y2 = a&c
-		vpaddd	XTMP0, XTMP0, XTMP4	// XTMP0 = {..., ..., W[1], W[0]}
-	and	y0, b_		// y0 = (a|c)&b
-	add	h_, y1		// h = h + S1 + CH + k + w + S0
-		//// compute high s1
-		vpshufd	XTMP2, XTMP0, 0b01010000	// XTMP2 = W[-2] {DDCC}
-	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
-	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
+	add	y2, y0
+	MY_ROR	y1, 2
+	add	y2, [rsp + 2*4]
+		vpxor	XTMP4, XTMP4, XTMP2
+	mov	y0, \rg
+	add	\rf, y2
+	mov	y2, \rg
+		vpshufb	XTMP4, XTMP4, SHUF_00BA
+	or	y0, \ra
+	add	\rb, \rf
+	and	y2, \ra
+		vpaddd	XTMP0, XTMP0, XTMP4
+	and	y0, \rh
+	add	\rf, y1
+		vpshufd	XTMP2, XTMP0, 0b01010000
+	or	y0, y2
+	add	\rf, y0
 
-ROTATE_ARGS
-		//vmovdqa	XTMP3, XTMP2	// XTMP3 = W[-2] {DDCC}
-	mov	y0, e_		// y0 = e
-	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-	mov	y1, a_		// y1 = a
-		//vmovdqa	XTMP5,    XTMP2	// XTMP5    = W[-2] {DDCC}
-	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
-	xor	y0, e_		// y0 = e ^ (e >> (25-11))
-	mov	y2, f_		// y2 = f
-	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-
-		vpsrld	XTMP5, XTMP2,   10	// XTMP5 = W[-2] >> 10 {DDCC}
-
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
-	xor	y2, g_		// y2 = f^g
-
-		vpsrlq	XTMP3, XTMP2, 19	// XTMP3 = W[-2] MY_ROR 19 {xDxC}
-
-	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
-	and	y2, e_		// y2 = (f^g)&e
-	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-
-		vpsrlq	XTMP2, XTMP2, 17	// XTMP2 = W[-2] MY_ROR 17 {xDxC}
-
-	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
-	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
-	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
-
+	// Round 3: a=rf, b=rg, c=rh, d=ra, e=rb, f=rc, g=rd, h=re
+	mov	y0, \rb
+	MY_ROR	y0, (25-11)
+	mov	y1, \rf
+	MY_ROR	y1, (22-13)
+	xor	y0, \rb
+	mov	y2, \rc
+	MY_ROR	y0, (11-6)
+		vpsrld	XTMP5, XTMP2, 10
+	xor	y1, \rf
+	xor	y2, \rd
+		vpsrlq	XTMP3, XTMP2, 19
+	xor	y0, \rb
+	and	y2, \rb
+	MY_ROR	y1, (13-2)
+		vpsrlq	XTMP2, XTMP2, 17
+	xor	y1, \rf
+	MY_ROR	y0, 6
+	xor	y2, \rd
 		vpxor	XTMP2, XTMP2, XTMP3
-
-	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
-	add	y2, y0		// y2 = S1 + CH
-	add	y2, [rsp + 3*4]	// y2 = k + w + S1 + CH
-		vpxor	XTMP5, XTMP5, XTMP2	// XTMP5 = s1 {xDxC}
-	mov	y0, a_		// y0 = a
-	add	h_, y2		// h = h + S1 + CH + k + w
-	mov	y2, a_		// y2 = a
-		vpshufb	XTMP5, XTMP5, SHUF_DC00	// XTMP5 = s1 {DC00}
-	or	y0, c_		// y0 = a|c
-	add	d_, h_		// d = d + h + S1 + CH + k + w
-	and	y2, c_		// y2 = a&c
-		vpaddd	X0, XTMP5, XTMP0	// X0 = {W[3], W[2], W[1], W[0]}
-	and	y0, b_		// y0 = (a|c)&b
-	add	h_, y1		// h = h + S1 + CH + k + w + S0
-	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
-	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
-ROTATE_ARGS
-rotate_Xs
+	MY_ROR	y1, 2
+	add	y2, y0
+	add	y2, [rsp + 3*4]
+		vpxor	XTMP5, XTMP5, XTMP2
+	mov	y0, \rf
+	add	\re, y2
+	mov	y2, \rf
+		vpshufb	XTMP5, XTMP5, SHUF_DC00
+	or	y0, \rh
+	add	\ra, \re
+	and	y2, \rh
+		vpaddd	\x0, XTMP5, XTMP0
+	and	y0, \rg
+	add	\re, y1
+	or	y0, y2
+	add	\re, y0
 .endm
 
-.macro DO_ROUND base offset
-	mov	y0, e_		// y0 = e
+// Parameterized DO_ROUND - takes all 8 working registers as parameters
+// No rotation at end - caller handles register rotation by passing different args
+.macro DO_ROUND_P ra, rb, rc, rd, re, rf, rg, rh, base, offset
+	mov	y0, \re		// y0 = e
 	MY_ROR	y0, (25-11)	// y0 = e >> (25-11)
-	mov	y1, a_		// y1 = a
-	xor	y0, e_		// y0 = e ^ (e >> (25-11))
+	mov	y1, \ra		// y1 = a
+	xor	y0, \re		// y0 = e ^ (e >> (25-11))
 	MY_ROR	y1, (22-13)	// y1 = a >> (22-13)
-	mov	y2, f_		// y2 = f
-	xor	y1, a_		// y1 = a ^ (a >> (22-13)
+	mov	y2, \rf		// y2 = f
+	xor	y1, \ra		// y1 = a ^ (a >> (22-13)
 	MY_ROR	y0, (11-6)	// y0 = (e >> (11-6)) ^ (e >> (25-6))
-	xor	y2, g_		// y2 = f^g
-	xor	y0, e_		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
+	xor	y2, \rg		// y2 = f^g
+	xor	y0, \re		// y0 = e ^ (e >> (11-6)) ^ (e >> (25-6))
 	MY_ROR	y1, (13-2)	// y1 = (a >> (13-2)) ^ (a >> (22-2))
-	and	y2, e_		// y2 = (f^g)&e
-	xor	y1, a_		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
+	and	y2, \re		// y2 = (f^g)&e
+	xor	y1, \ra		// y1 = a ^ (a >> (13-2)) ^ (a >> (22-2))
 	MY_ROR	y0, 6		// y0 = S1 = (e>>6) & (e>>11) ^ (e>>25)
-	xor	y2, g_		// y2 = CH = ((f^g)&e)^g
+	xor	y2, \rg		// y2 = CH = ((f^g)&e)^g
 	add	y2, y0		// y2 = S1 + CH
 	MY_ROR	y1, 2		// y1 = S0 = (a>>2) ^ (a>>13) ^ (a>>22)
 	add	y2, [\base + \offset]	// y2 = k + w + S1 + CH
-	mov	y0, a_		// y0 = a
-	add	h_, y2		// h = h + S1 + CH + k + w
-	mov	y2, a_		// y2 = a
-	or	y0, c_		// y0 = a|c
-	add	d_, h_		// d = d + h + S1 + CH + k + w
-	and	y2, c_		// y2 = a&c
-	and	y0, b_		// y0 = (a|c)&b
-	add	h_, y1		// h = h + S1 + CH + k + w + S0
+	mov	y0, \ra		// y0 = a
+	add	\rh, y2		// h = h + S1 + CH + k + w
+	mov	y2, \ra		// y2 = a
+	or	y0, \rc		// y0 = a|c
+	add	\rd, \rh	// d = d + h + S1 + CH + k + w
+	and	y2, \rc		// y2 = a&c
+	and	y0, \rb		// y0 = (a|c)&b
+	add	\rh, y1		// h = h + S1 + CH + k + w + S0
 	or	y0, y2		// y0 = MAJ = (a|c)&b)|(a&c)
-	add	h_, y0		// h = h + S1 + CH + k + w + S0 + MAJ
-	ROTATE_ARGS
+	add	\rh, y0		// h = h + S1 + CH + k + w + S0 + MAJ
 .endm
 
 .global hashtree_sha256_avx_x1
@@ -465,45 +413,101 @@ hashtree_sha256_avx_x1:
 	COPY_XMM_AND_BSWAP	X3, [DATA_PTR + 3*16], BYTE_FLIP_MASK
 
 	//; schedule 48 input dwords, by doing 3 rounds of 16 each
-.rept 3
+	//; Rep 1 of 3
 .align 32
-	vpaddd	XFER, X0, [TBL + 0*16]
+	vpaddd	XFER, INI_X0, [TBL + 0*16]
 	vmovdqa	[rsp], XFER
-	FOUR_ROUNDS_AND_SCHED
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X0, INI_X1, INI_X2, INI_X3
 
-	vpaddd	XFER, X0, [TBL + 1*16]
+	vpaddd	XFER, INI_X1, [TBL + 1*16]
 	vmovdqa	[rsp], XFER
-	FOUR_ROUNDS_AND_SCHED
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X1, INI_X2, INI_X3, INI_X0
 
-	vpaddd	XFER, X0, [TBL + 2*16]
+	vpaddd	XFER, INI_X2, [TBL + 2*16]
 	vmovdqa	[rsp], XFER
-	FOUR_ROUNDS_AND_SCHED
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X2, INI_X3, INI_X0, INI_X1
 
-	vpaddd	XFER, X0, [TBL + 3*16]
+	vpaddd	XFER, INI_X3, [TBL + 3*16]
 	vmovdqa	[rsp], XFER
 	add	TBL, 4*16
-	FOUR_ROUNDS_AND_SCHED
-.endr
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X3, INI_X0, INI_X1, INI_X2
 
-.rept 2 
+	//; Rep 2 of 3
+.align 32
+	vpaddd	XFER, INI_X0, [TBL + 0*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X0, INI_X1, INI_X2, INI_X3
+
+	vpaddd	XFER, INI_X1, [TBL + 1*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X1, INI_X2, INI_X3, INI_X0
+
+	vpaddd	XFER, INI_X2, [TBL + 2*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X2, INI_X3, INI_X0, INI_X1
+
+	vpaddd	XFER, INI_X3, [TBL + 3*16]
+	vmovdqa	[rsp], XFER
+	add	TBL, 4*16
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X3, INI_X0, INI_X1, INI_X2
+
+	//; Rep 3 of 3
+.align 32
+	vpaddd	XFER, INI_X0, [TBL + 0*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X0, INI_X1, INI_X2, INI_X3
+
+	vpaddd	XFER, INI_X1, [TBL + 1*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X1, INI_X2, INI_X3, INI_X0
+
+	vpaddd	XFER, INI_X2, [TBL + 2*16]
+	vmovdqa	[rsp], XFER
+	FOUR_ROUNDS_AND_SCHED_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_X2, INI_X3, INI_X0, INI_X1
+
+	vpaddd	XFER, INI_X3, [TBL + 3*16]
+	vmovdqa	[rsp], XFER
+	add	TBL, 4*16
+	FOUR_ROUNDS_AND_SCHED_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_X3, INI_X0, INI_X1, INI_X2
+
+//; Rounds 48-63 (2 reps of 8 rounds each)
+	//; Rep 1: rounds 48-55
 	vpaddd	XFER, X0, [TBL + 0*16]
 	vmovdqa	[rsp], XFER
-	DO_ROUND rsp, 0
-	DO_ROUND rsp, 4
-	DO_ROUND rsp, 8
-	DO_ROUND rsp, 12
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, rsp, 0
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, rsp, 4
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, rsp, 8
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, rsp, 12
 
 	vpaddd	XFER, X1, [TBL + 1*16]
 	vmovdqa	[rsp], XFER
 	add	TBL, 2*16
-	DO_ROUND rsp, 0
-	DO_ROUND rsp, 4
-	DO_ROUND rsp, 8
-	DO_ROUND rsp, 12
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, rsp, 0
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, rsp, 4
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, rsp, 8
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, rsp, 12
 
 	vmovdqa	X0, X2
 	vmovdqa	X1, X3
-.endr
+
+	//; Rep 2: rounds 56-63
+	vpaddd	XFER, X0, [TBL + 0*16]
+	vmovdqa	[rsp], XFER
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, rsp, 0
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, rsp, 4
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, rsp, 8
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, rsp, 12
+
+	vpaddd	XFER, X1, [TBL + 1*16]
+	vmovdqa	[rsp], XFER
+	add	TBL, 2*16
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, rsp, 0
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, rsp, 4
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, rsp, 8
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, rsp, 12
+
+	vmovdqa	X0, X2
+	vmovdqa	X1, X3
  
         // add old digest
 
@@ -533,11 +537,79 @@ hashtree_sha256_avx_x1:
        
         lea     TBL,[rip + .LPADDING]
        
-.set .Li, 0
-.rept 64
-                    DO_ROUND TBL, .Li
-	            .set .Li, .Li+4
-.endr
+//; 64 padding rounds - fully unrolled with explicit registers
+	//; Rounds 0-7 (cycle 1)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 0
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 4
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 8
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 12
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 16
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 20
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 24
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 28
+	//; Rounds 8-15 (cycle 2)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 32
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 36
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 40
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 44
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 48
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 52
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 56
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 60
+	//; Rounds 16-23 (cycle 3)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 64
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 68
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 72
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 76
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 80
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 84
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 88
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 92
+	//; Rounds 24-31 (cycle 4)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 96
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 100
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 104
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 108
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 112
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 116
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 120
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 124
+	//; Rounds 32-39 (cycle 5)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 128
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 132
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 136
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 140
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 144
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 148
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 152
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 156
+	//; Rounds 40-47 (cycle 6)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 160
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 164
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 168
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 172
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 176
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 180
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 184
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 188
+	//; Rounds 48-55 (cycle 7)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 192
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 196
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 200
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 204
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 208
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 212
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 216
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 220
+	//; Rounds 56-63 (cycle 8)
+	DO_ROUND_P INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, TBL, 224
+	DO_ROUND_P INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, TBL, 228
+	DO_ROUND_P INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, INI_f, TBL, 232
+	DO_ROUND_P INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, INI_e, TBL, 236
+	DO_ROUND_P INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, INI_d, TBL, 240
+	DO_ROUND_P INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, INI_c, TBL, 244
+	DO_ROUND_P INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, INI_b, TBL, 248
+	DO_ROUND_P INI_b, INI_c, INI_d, INI_e, INI_f, INI_g, INI_h, INI_a, TBL, 252
 
         //; add the previous digest
         add   a_, [rsp + _DIGEST + 0*4]
