@@ -21,9 +21,9 @@ when
   (defined(macosx) and defined(clang) and defined(arm64)):
 
   const cflags =
-    when defined(clang) and (defined(linux) or defined(macosx)):
+    when defined(clang) and (defined(linux)):
       # The integrated `clang` assembler uses a different macro syntax but on
-      # linux and macos we can convince it to use the system assembler which _tends_ to be
+      # linux we can convince it to use the system assembler which _tends_ to be
       # the binutils variant
       "-fno-integrated-as"
     else:
