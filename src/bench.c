@@ -247,6 +247,45 @@ UBENCH_EX(shani, shani_one_at_time) {
     free(buffer);
 }
 #endif
+#ifdef __riscv
+UBENCH_EX(riscv, riscv_x1) {
+    int * buffer  = (int *) malloc(buffer_size);
+    unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
+    for (int i = 0; i < buffer_size/sizeof(int); i++) {
+        buffer[i] = rand();
+    }
+    UBENCH_DO_BENCHMARK() {
+        hashtree_sha256_riscv_x1(digest, (unsigned char *)buffer, buffer_size/64);
+    }
+    free(buffer);
+    free(digest);
+}
+UBENCH_EX(riscv, riscv_zbb_x1) {
+    int * buffer  = (int *) malloc(buffer_size);
+    unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
+    for (int i = 0; i < buffer_size/sizeof(int); i++) {
+        buffer[i] = rand();
+    }
+    UBENCH_DO_BENCHMARK() {
+        hashtree_sha256_riscv_zbb_x1(digest, (unsigned char *)buffer, buffer_size/64);
+    }
+    free(buffer);
+    free(digest);
+}
+UBENCH_EX(riscv, riscv_crypto) {
+    int * buffer  = (int *) malloc(buffer_size);
+    unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
+    for (int i = 0; i < buffer_size/sizeof(int); i++) {
+        buffer[i] = rand();
+    }
+    UBENCH_DO_BENCHMARK() {
+        hashtree_sha256_riscv_crypto(digest, (unsigned char *)buffer, buffer_size/64);
+    }
+    free(buffer);
+    free(digest);
+}
+#endif
+
 #ifdef HAVE_OPENSSL
 UBENCH_EX(openssl, openssl_one_at_time) {
     int *buffer = (int *)malloc(buffer_size);

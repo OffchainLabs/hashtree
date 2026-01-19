@@ -28,6 +28,11 @@ jobs:
           - name: Windows x86
             runner: windows-latest
             syso_name: hashtree_windows_amd64.syso
+          - name: Linux RISC-V 64
+            runner: ubuntu-latest
+            cc: riscv64-linux-gnu-gcc
+            cross_pkg: gcc-riscv64-linux-gnu
+            syso_name: hashtree_linux_riscv64.syso
     steps:
       - name: Checkout
         uses: actions/checkout@v4

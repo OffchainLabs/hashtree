@@ -34,6 +34,33 @@ SOFTWARE.
 #include <sys/auxv.h>
 #endif
 #endif
+#ifdef __riscv
+#include <sys/syscall.h>
+#include <unistd.h>
+
+/* riscv_hwprobe syscall interface - available in Linux 6.4+ */
+#ifndef __NR_riscv_hwprobe
+#define __NR_riscv_hwprobe 258
+#endif
+
+struct riscv_hwprobe {
+    int64_t key;
+    uint64_t value;
+};
+
+#define RISCV_HWPROBE_KEY_IMA_EXT_0 4
+#define RISCV_HWPROBE_EXT_ZBB       (1ULL << 1)
+#define RISCV_HWPROBE_EXT_ZBC       (1ULL << 2)
+#define RISCV_HWPROBE_EXT_ZBKB      (1ULL << 3)
+#define RISCV_HWPROBE_EXT_ZBKC      (1ULL << 4)
+#define RISCV_HWPROBE_EXT_ZBKX      (1ULL << 5)
+#define RISCV_HWPROBE_EXT_ZKND      (1ULL << 6)
+#define RISCV_HWPROBE_EXT_ZKNE      (1ULL << 7)
+#define RISCV_HWPROBE_EXT_ZKNH      (1ULL << 8)
+#define RISCV_HWPROBE_EXT_ZKSED     (1ULL << 9)
+#define RISCV_HWPROBE_EXT_ZKSH      (1ULL << 10)
+#define RISCV_HWPROBE_EXT_ZKT       (1ULL << 11)
+#endif
 
 static void init_and_hash(unsigned char *output, const unsigned char *input, uint64_t count);
 
@@ -63,6 +90,29 @@ static hashtree_hash_fcn hashtree_detect() {
     if (c & bit_AVX) {
         return &hashtree_sha256_sse_x1;
     }
+#endif
+#ifdef __riscv
+    struct riscv_hwprobe pairs[1] = {
+        { .key = RISCV_HWPROBE_KEY_IMA_EXT_0 }
+    };
+
+    long ret = syscall(__NR_riscv_hwprobe, pairs, 1, 0, NULL, 0);
+    if (ret == 0) {
+        uint64_t ext = pairs[0].value;
+
+        /* Check for SHA-256 crypto extension (Zknh) + related extensions */
+        if ((ext & RISCV_HWPROBE_EXT_ZKNH) && (ext & RISCV_HWPROBE_EXT_ZBKB)) {
+            return &hashtree_sha256_riscv_crypto;
+        }
+
+        /* Check for Zbb bit manipulation extension */
+        if (ext & RISCV_HWPROBE_EXT_ZBB) {
+            return &hashtree_sha256_riscv_zbb_x1;
+        }
+    }
+
+    /* Fall back to basic RISC-V implementation */
+    return &hashtree_sha256_riscv_x1;
 #endif
 #ifdef __aarch64__
 #ifdef __APPLE__

@@ -57,9 +57,10 @@ else
 	endif
 endif
 
-# ARM architecture detection
+# architecture detection
 ifdef CC
   ARM = $(shell $(CC) -dM -E - < /dev/null | grep "aarch" | awk '{ print $$3 }')
+  RISCV = $(shell $(CC) -dM -E - < /dev/null | grep "riscv 1" | awk '{ print $$3 }')
   ifneq ($(findstring mingw, $(CC)),)
 	ifneq ($(ARM),1)
 		PLATFORM = Windows
@@ -68,6 +69,7 @@ ifdef CC
 else
   ARCH = $(shell uname -m)
   ARM = $(shell echo $(ARCH) | grep -E '^(arm|aarch64)' >/dev/null && echo 1 || echo 0)
+  RISCV = $(shell echo $(ARCH) | grep -E '^riscv' >/dev/null && echo 1 || echo 0)
 endif
 
 # Cross-platform compiler selection
@@ -96,6 +98,14 @@ ifeq ($(ARM), 1)
 	OBJ_LIST = $(OBJ_DIR)/sha256_armv8_neon_x4.o\
 		$(OBJ_DIR)/sha256_armv8_neon_x1.o\
 		$(OBJ_DIR)/sha256_armv8_crypto.o\
+		$(OBJ_DIR)/sha256_generic.o\
+		$(OBJ_DIR)/hashtree.o
+else ifeq ($(RISCV), 1)
+	CFLAGS += -march=rv64gc_zbb_zk
+	ASFLAGS += -march=rv64gc_zbb_zk
+	OBJ_LIST = $(OBJ_DIR)/sha256_riscv_x1.o\
+		   $(OBJ_DIR)/sha256_riscv_zbb_x1.o\
+		   $(OBJ_DIR)/sha256_riscv_crypto.o\
 		$(OBJ_DIR)/sha256_generic.o\
 		$(OBJ_DIR)/hashtree.o
 else
