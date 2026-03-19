@@ -338,7 +338,7 @@ hashtree_sha256_neon_x1:
 		    ld1			{VR0.4s, VR1.4s, VR2.4s, VR3.4s}, [input], #64
 #ifdef __APPLE__
 		    adrp		k256, .LK256@PAGE
-		    add 		k256, k256, #:lo12:.LK256@PAGEOFF
+		    add 		k256, k256, .LK256@PAGEOFF
 #else
 		    adrp		k256, .LK256
 		    add 		k256, k256, #:lo12:.LK256
