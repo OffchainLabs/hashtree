@@ -126,10 +126,10 @@ jobs:
           #   use-docker: true
     steps:
     - name: checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Set up QEMU
       if: ${{ matrix.settings.use-docker && matrix.settings.runner == 'ubuntu-latest' }}
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
       with:
         platforms: arm64
     - name: Build in docker
@@ -157,6 +157,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: jiro4989/setup-nim-action@v1
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Nim test
         run: nim c -r tests/test_hashtree_abi.nim
