@@ -60,7 +60,7 @@ static hashtree_hash_fcn hashtree_detect() {
     if (c & bit_AVX) {
         return &hashtree_sha256_avx_x4;
     }
-    if (c & bit_AVX) {
+    if (c & bit_SSSE3) {
         return &hashtree_sha256_sse_x1;
     }
 #endif
