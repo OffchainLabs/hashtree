@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021-2024 Prysmatic Labs
+Copyright (c) 2021-2026 Prysmatic Labs
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -60,7 +60,7 @@ static hashtree_hash_fcn hashtree_detect() {
     if (c & bit_AVX) {
         return &hashtree_sha256_avx_x4;
     }
-    if (c & bit_AVX) {
+    if (c & bit_SSSE3) {
         return &hashtree_sha256_sse_x1;
     }
 #endif
