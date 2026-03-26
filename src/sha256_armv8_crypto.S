@@ -87,9 +87,9 @@ hashtree_sha256_sha_x1:
 
 #ifdef __APPLE__
 		    adrp		digest, .LDIGEST@PAGE
-		    add			digest, digest, #:lo12:.LDIGEST@PAGEOFF
+		    add			digest, digest, .LDIGEST@PAGEOFF
 		    adrp		k256, .LK256@PAGE
-		    add			k256, k256, #:lo12:.LK256@PAGEOFF
+		    add			k256, k256, .LK256@PAGEOFF
 #else
 		    adrp		digest, .LDIGEST
 		    add			digest, digest, #:lo12:.LDIGEST
@@ -99,7 +99,7 @@ hashtree_sha256_sha_x1:
 		    stp			d10, d11, [sp, #16]
 #ifdef __APPLE__
 		    adrp		padding, .LPADDING@PAGE
-		    add			padding, padding, #:lo12:.LPADDING@PAGEOFF
+		    add			padding, padding, .LPADDING@PAGEOFF
 #else
 		    adrp		padding, .LPADDING
 		    add			padding, padding, #:lo12:.LPADDING
