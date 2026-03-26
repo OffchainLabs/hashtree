@@ -32,16 +32,30 @@ jobs:
           - name: Windows arm64
             target: aarch64-pc-windows-msvc
             runner: windows-latest
+          - name: Linux RISC-V 64
+            target: riscv64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cc: riscv64-linux-gnu-gcc
+            qemu: qemu-riscv64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install RISC-V toolchain and QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
       - name: Cross-Compile Build
         if: ${{ matrix.settings.cc != '' }}
         run: CC=${{ matrix.settings.cc }} make all
       - name: Build
         if: ${{ !matrix.settings.cc }}
         run: make all
+      - name: Run tests with QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./build/test
       - name: Run tests
+        if: ${{ !matrix.settings.qemu }}
         run: ./build/test
 
   go-bindings:
@@ -79,6 +93,12 @@ jobs:
           - name: Windows arm64
             target: aarch64-pc-windows-msvc
             runner: windows-latest
+          - name: Linux RISC-V 64
+            target: riscv64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cc: riscv64-linux-gnu-gcc
+            qemu: qemu-riscv64
+            goarch: riscv64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,8 +106,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+      - name: Install RISC-V toolchain and QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
       - name: Cross-Compile Build
-        if: ${{ matrix.settings.cc != '' }}
+        if: ${{ matrix.settings.cc != '' && !matrix.settings.qemu }}
         run: CC=${{ matrix.settings.cc }} make go_bindings
       - name: Build
         if: ${{ !matrix.settings.cc && !matrix.settings.generic_only }}
@@ -95,9 +120,21 @@ jobs:
       - name: Build (generic only)
         if: ${{ matrix.settings.generic_only }}
         run: go build .
+      - name: Cross-Compile Build for RISC-V
+        if: ${{ matrix.settings.qemu }}
+        run: |
+          CC=${{ matrix.settings.cc }} make go_bindings
+          mv hashtree.syso hashtree_linux_riscv64.syso
       - name: Run tests
+        if: ${{ !matrix.settings.qemu }}
         run: go test .
+      - name: Run tests with QEMU
+        if: ${{ matrix.settings.qemu }}
+        run: |
+          CGO_ENABLED=1 CC=${{ matrix.settings.cc }} GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -o test.riscv64
+          ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./test.riscv64
       - name: Run benchmarks
+        if: ${{ !matrix.settings.qemu }}
         run: go test -bench=.
 
   rust-bindings:
