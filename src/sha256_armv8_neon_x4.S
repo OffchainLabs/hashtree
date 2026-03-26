@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021-2024 Prysmatic Labs
+Copyright (c) 2021-2026 Prysmatic Labs
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -423,7 +423,11 @@ hashtree_sha256_neon_x4:
 #else
 		    b			hashtree_sha256_neon_x1
 #endif
+#ifdef __APPLE__
+.const
+#else
 .section .rodata,"a"
+#endif
 .align 4
 .LDIGESTx4L:
 .word		    0x6a09e667, 0x6a09e667, 0x6a09e667, 0x6a09e667,\

@@ -441,7 +441,11 @@ hashtree_sha256_neon_x1:
 		    add			sp, sp, #64
 		    ret
 
+#ifdef __APPLE__
+.const
+#else
 .section .rodata, "a"
+#endif
 .align 4
 .LDIGEST:
 .word		    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,\

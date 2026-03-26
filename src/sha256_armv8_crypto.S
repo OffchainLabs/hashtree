@@ -205,7 +205,11 @@ hashtree_sha256_sha_x1:
 		    ldp			d10, d11, [sp], #16
 		    ret
 
+#ifdef __APPLE__
+.const
+#else
 .section .rodata, "a"
+#endif
 .align 4
 .LDIGEST:
 .word		    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,\
