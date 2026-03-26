@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021-2024 Prysmatic Labs
+Copyright (c) 2021-2026 Prysmatic Labs
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -338,7 +338,7 @@ hashtree_sha256_neon_x1:
 		    ld1			{VR0.4s, VR1.4s, VR2.4s, VR3.4s}, [input], #64
 #ifdef __APPLE__
 		    adrp		k256, .LK256@PAGE
-		    add 		k256, k256, #:lo12:.LK256@PAGEOFF
+		    add 		k256, k256, .LK256@PAGEOFF
 #else
 		    adrp		k256, .LK256
 		    add 		k256, k256, #:lo12:.LK256
@@ -441,7 +441,11 @@ hashtree_sha256_neon_x1:
 		    add			sp, sp, #64
 		    ret
 
+#ifdef __APPLE__
+.const
+#else
 .section .rodata, "a"
+#endif
 .align 4
 .LDIGEST:
 .word		    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,\
