@@ -1,6 +1,6 @@
 [package]
 name = "hashtree-rs"
-version = "0.2.0"
+version = "0.2.4"
 authors = ["Potuz <potuz@prysmaticlabs.com>"]
 edition = "2021"
 description = "Rust bindings for the hashtree library"
