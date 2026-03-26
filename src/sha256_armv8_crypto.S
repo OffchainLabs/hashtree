@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021-2024 Prysmatic Labs
+Copyright (c) 2021-2026 Prysmatic Labs
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -87,9 +87,9 @@ hashtree_sha256_sha_x1:
 
 #ifdef __APPLE__
 		    adrp		digest, .LDIGEST@PAGE
-		    add			digest, digest, #:lo12:.LDIGEST@PAGEOFF
+		    add			digest, digest, .LDIGEST@PAGEOFF
 		    adrp		k256, .LK256@PAGE
-		    add			k256, k256, #:lo12:.LK256@PAGEOFF
+		    add			k256, k256, .LK256@PAGEOFF
 #else
 		    adrp		digest, .LDIGEST
 		    add			digest, digest, #:lo12:.LDIGEST
@@ -99,7 +99,7 @@ hashtree_sha256_sha_x1:
 		    stp			d10, d11, [sp, #16]
 #ifdef __APPLE__
 		    adrp		padding, .LPADDING@PAGE
-		    add			padding, padding, #:lo12:.LPADDING@PAGEOFF
+		    add			padding, padding, .LPADDING@PAGEOFF
 #else
 		    adrp		padding, .LPADDING
 		    add			padding, padding, #:lo12:.LPADDING
@@ -205,7 +205,11 @@ hashtree_sha256_sha_x1:
 		    ldp			d10, d11, [sp], #16
 		    ret
 
+#ifdef __APPLE__
+.const
+#else
 .section .rodata, "a"
+#endif
 .align 4
 .LDIGEST:
 .word		    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,\

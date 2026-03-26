@@ -7,7 +7,7 @@
 mode = ScriptMode.Verbose
 
 packageName   = "hashtree_abi"
-version       = "0.2.0"
+version       = "0.2.4"
 author        = "Prysmatic labs, Status Research and Development GmbH"
 description   = "Low-level ABI package for hashtree, a SHA256 implementation specialized for merkle trees and 64-byte chunks"
 license       = "MIT"
