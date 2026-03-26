@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021-2024 Prysmatic Labs
+Copyright (c) 2021-2026 Prysmatic Labs
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -663,14 +663,14 @@ hashtree_sha256_sse_x1:
 .Lsha256_1_sse_epilog:
 
 #ifdef __WIN64__
-	vmovdqa	xmm6,[rsp + _XMM_SAVE + 0*16]
-	vmovdqa	xmm7,[rsp + _XMM_SAVE + 1*16]
-	vmovdqa	xmm8,[rsp + _XMM_SAVE + 2*16]
-	vmovdqa	xmm9,[rsp + _XMM_SAVE + 3*16]
-	vmovdqa	xmm10,[rsp + _XMM_SAVE + 4*16]
-	vmovdqa	xmm11,[rsp + _XMM_SAVE + 5*16]
-	vmovdqa	xmm12,[rsp + _XMM_SAVE + 6*16]
-	vmovdqa	xmm13,[rsp + _XMM_SAVE + 7*16]
+	movdqa	xmm6,[rsp + _XMM_SAVE + 0*16]
+	movdqa	xmm7,[rsp + _XMM_SAVE + 1*16]
+	movdqa	xmm8,[rsp + _XMM_SAVE + 2*16]
+	movdqa	xmm9,[rsp + _XMM_SAVE + 3*16]
+	movdqa	xmm10,[rsp + _XMM_SAVE + 4*16]
+	movdqa	xmm11,[rsp + _XMM_SAVE + 5*16]
+	movdqa	xmm12,[rsp + _XMM_SAVE + 6*16]
+	movdqa	xmm13,[rsp + _XMM_SAVE + 7*16]
 #endif 
 
 	add	rsp, STACK_SIZE
