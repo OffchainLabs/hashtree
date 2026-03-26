@@ -297,14 +297,14 @@ hashtree_sha256_neon_x4:
                     sub                 sp, sp, #1024
 
 #ifdef __APPLE__
-		    adrp		k256,.LK256x4@GOTPAGE
-		    ldr			k256, [k256, .LK256x4@GOTPAGEOFF]
-		    adrp		padding, .LPADDINGx4@GOTPAGE
-		    ldr			padding, [padding, .LPADDINGx4@GOTPAGEOFF]
-		    adrp		digest, .LDIGESTx4L@GOTPAGE
-		    ldr			digest, [digest, .LDIGESTx4L@GOTPAGEOFF]
-		    adrp		digest2, .LDIGESTx4H@GOTPAGE
-		    ldr			digest2, [digest2, .LDIGESTx4H@GOTPAGEOFF]
+		    adrp		k256, .LK256x4@PAGE
+		    add			k256, k256, .LK256x4@PAGEOFF
+		    adrp		padding, .LPADDINGx4@PAGE
+		    add			padding, padding, .LPADDINGx4@PAGEOFF
+		    adrp		digest, .LDIGESTx4L@PAGE
+		    add			digest, digest, .LDIGESTx4L@PAGEOFF
+		    adrp		digest2, .LDIGESTx4H@PAGE
+		    add			digest2, digest2, .LDIGESTx4H@PAGEOFF
 #else
 		    adrp		k256,.LK256x4
 		    add			k256, k256, #:lo12:.LK256x4
