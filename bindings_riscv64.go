@@ -1,5 +1,5 @@
-//go:build riscv64
-// +build riscv64
+//go:build linux && riscv64
+// +build linux,riscv64
 
 package hashtree
 
