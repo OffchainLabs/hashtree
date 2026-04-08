@@ -50,6 +50,12 @@ void hashtree_sha256_neon_x4(unsigned char* output, const unsigned char* input, 
 void hashtree_sha256_sha_x1(unsigned char* output, const unsigned char* input, uint64_t count);
 #endif
 
+#ifdef __riscv
+void hashtree_sha256_riscv_x1(unsigned char* output, const unsigned char* input, uint64_t count);
+void hashtree_sha256_riscv_zbb_x1(unsigned char* output, const unsigned char* input, uint64_t count);
+void hashtree_sha256_riscv_crypto(unsigned char* output, const unsigned char* input, uint64_t count);
+#endif
+
 #ifdef __x86_64__
 void hashtree_sha256_sse_x1(unsigned char* output, const unsigned char* input, uint64_t count);
 void hashtree_sha256_avx_x1(unsigned char* output, const unsigned char* input, uint64_t count);

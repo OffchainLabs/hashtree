@@ -151,6 +151,24 @@ $ ./src/bench
 We see that a ASIMD version 4 blocks at a time, while not that much of an
 improvement as in the x86-64, is still 27% faster. 
 
+These are benchmarks on a Banana Pi BPI-R3 with a RISC-V processor
+```shell
+$ ./build/bench
+[==========] Running 5 benchmarks.
+[ RUN      ] riscv.riscv_x1_one_at_time
+[       OK ] riscv.riscv_x1_one_at_time (mean 175.869ms, confidence interval +- 0.049002%)
+[ RUN      ] riscv.riscv_x1
+[       OK ] riscv.riscv_x1 (mean 174.487ms, confidence interval +- 0.021073%)
+[ RUN      ] riscv.riscv_zbb_x1_one_at_time
+[       OK ] riscv.riscv_zbb_x1_one_at_time (mean 110.312ms, confidence interval +- 0.019516%)
+[ RUN      ] riscv.riscv_zbb_x1
+[       OK ] riscv.riscv_zbb_x1 (mean 109.428ms, confidence interval +- 0.061542%)
+[ RUN      ] openssl.openssl_one_at_time
+[       OK ] openssl.openssl_one_at_time (mean 465.372ms, confidence interval +- 0.039380%)
+[==========] 5 benchmarks ran.
+```
+which shows 450% improvement over open SSL with zbb extensions. There is an unbenched RISC-V implementation with crypto extensions. 
+
 ## Using the library
 The library exposes several architecture dependent SHA implementations. It is the caller responsibility to choose the right one. This can be done at runtime once at application launch. For x86_64 systems for example one can use cpuid.h, see [here](https://github.com/potuz/mammon/blob/main/ssz/hasher.cpp#L43) for an example on how to choose an implementation. 
 

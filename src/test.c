@@ -504,6 +504,78 @@ void test_hash_openssl() {
 }
 #endif
 
+#ifdef __riscv
+void test_hash_riscv_x1_one_block() {
+    unsigned char digest[32];
+
+    hashtree_sha256_riscv_x1(digest, test_16_block, 1);
+
+    TEST_CHECK(digests_equal(digest, test_1_digest, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_1_digest, sizeof(test_1_digest));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+
+void test_hash_riscv_x1_multiple_blocks() {
+    unsigned char digest[128];
+
+    hashtree_sha256_riscv_x1(digest, test_16_block, 4);
+
+    TEST_CHECK(sizeof(digest) == sizeof(test_4_digests));
+    TEST_MSG("Expected: %lu", sizeof(test_4_digests));
+    TEST_MSG("Produced: %lu", sizeof(digest));
+
+    TEST_CHECK(digests_equal(digest, test_4_digests, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_4_digests, sizeof(test_4_digests));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+void test_hash_riscv_zbb_x1_one_block() {
+    unsigned char digest[32];
+
+    hashtree_sha256_riscv_zbb_x1(digest, test_16_block, 1);
+
+    TEST_CHECK(digests_equal(digest, test_1_digest, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_1_digest, sizeof(test_1_digest));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+
+void test_hash_riscv_zbb_x1_multiple_blocks() {
+    unsigned char digest[128];
+
+    hashtree_sha256_riscv_zbb_x1(digest, test_16_block, 4);
+
+    TEST_CHECK(sizeof(digest) == sizeof(test_4_digests));
+    TEST_MSG("Expected: %lu", sizeof(test_4_digests));
+    TEST_MSG("Produced: %lu", sizeof(digest));
+
+    TEST_CHECK(digests_equal(digest, test_4_digests, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_4_digests, sizeof(test_4_digests));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+void test_hash_riscv_crypto_one_block() {
+    unsigned char digest[32];
+
+    hashtree_sha256_riscv_crypto(digest, test_16_block, 1);
+
+    TEST_CHECK(digests_equal(digest, test_1_digest, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_1_digest, sizeof(test_1_digest));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+
+void test_hash_riscv_crypto_multiple_blocks() {
+    unsigned char digest[128];
+
+    hashtree_sha256_riscv_crypto(digest, test_16_block, 4);
+
+    TEST_CHECK(sizeof(digest) == sizeof(test_4_digests));
+    TEST_MSG("Expected: %lu", sizeof(test_4_digests));
+    TEST_MSG("Produced: %lu", sizeof(digest));
+
+    TEST_CHECK(digests_equal(digest, test_4_digests, sizeof(digest)));
+    TEST_DUMP("Expected: ", test_4_digests, sizeof(test_4_digests));
+    TEST_DUMP("Produced: ", digest, sizeof(digest));
+}
+#endif
+
 #ifdef __aarch64__
 void test_hash_armv8_neon_x1_one_block() {
     unsigned char digest[32];
@@ -594,6 +666,14 @@ TEST_LIST = {{"hash", test_hash},
              {"hash_shani_13blocks", test_hash_shani_13_blocks},
              {"hash_avx_16", test_hash_avx_16},
              {"hash_avx_16_30blocks", test_hash_avx512_30_blocks},
+#endif
+#ifdef __riscv
+    {"hash_riscv_x1_one_block", test_hash_riscv_x1_one_block},
+    {"hash_riscv_x1_multiple_blocks", test_hash_riscv_x1_multiple_blocks},
+    {"hash_riscv_zbb_x1_one_block", test_hash_riscv_zbb_x1_one_block},
+    {"hash_riscv_zbb_x1_multiple_blocks", test_hash_riscv_zbb_x1_multiple_blocks},
+    {"hash_riscv_crypto_one_block", test_hash_riscv_crypto_one_block},
+    {"hash_riscv_crypto_multiple_blocks", test_hash_riscv_crypto_multiple_blocks},
 #endif
 #ifdef __aarch64__
              {"hash_armv8_neon_one_block", test_hash_armv8_neon_x1_one_block},
