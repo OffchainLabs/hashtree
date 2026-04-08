@@ -32,7 +32,7 @@ Registers used:
     a5  temporary register
     a6  temporary register, used for digest rotations
 
-    t0-t6 and a7 re used as digest variables:
+    t0-t6 and a7 are used as digest variables:
 
 Clobbers 
     s10 (SCHD) keeps a scheduled word
