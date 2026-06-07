@@ -49,17 +49,22 @@ struct riscv_hwprobe {
 };
 
 #define RISCV_HWPROBE_KEY_IMA_EXT_0 4
-#define RISCV_HWPROBE_EXT_ZBB       (1ULL << 1)
-#define RISCV_HWPROBE_EXT_ZBC       (1ULL << 2)
-#define RISCV_HWPROBE_EXT_ZBKB      (1ULL << 3)
-#define RISCV_HWPROBE_EXT_ZBKC      (1ULL << 4)
-#define RISCV_HWPROBE_EXT_ZBKX      (1ULL << 5)
-#define RISCV_HWPROBE_EXT_ZKND      (1ULL << 6)
-#define RISCV_HWPROBE_EXT_ZKNE      (1ULL << 7)
-#define RISCV_HWPROBE_EXT_ZKNH      (1ULL << 8)
-#define RISCV_HWPROBE_EXT_ZKSED     (1ULL << 9)
-#define RISCV_HWPROBE_EXT_ZKSH      (1ULL << 10)
-#define RISCV_HWPROBE_EXT_ZKT       (1ULL << 11)
+/*
+ * Extension bit positions as defined by the Linux riscv_hwprobe ABI
+ * (arch/riscv/include/uapi/asm/hwprobe.h). The bits are not contiguous:
+ * bits 0-2 are the IMA FD/C/V flags and bit 3 is Zba, so Zbb starts at bit 4.
+ */
+#define RISCV_HWPROBE_EXT_ZBB       (1ULL << 4)
+#define RISCV_HWPROBE_EXT_ZBC       (1ULL << 7)
+#define RISCV_HWPROBE_EXT_ZBKB      (1ULL << 8)
+#define RISCV_HWPROBE_EXT_ZBKC      (1ULL << 9)
+#define RISCV_HWPROBE_EXT_ZBKX      (1ULL << 10)
+#define RISCV_HWPROBE_EXT_ZKND      (1ULL << 11)
+#define RISCV_HWPROBE_EXT_ZKNE      (1ULL << 12)
+#define RISCV_HWPROBE_EXT_ZKNH      (1ULL << 13)
+#define RISCV_HWPROBE_EXT_ZKSED     (1ULL << 14)
+#define RISCV_HWPROBE_EXT_ZKSH      (1ULL << 15)
+#define RISCV_HWPROBE_EXT_ZKT       (1ULL << 16)
 #endif
 
 static void init_and_hash(unsigned char *output, const unsigned char *input, uint64_t count);
