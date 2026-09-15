@@ -1,7 +1,13 @@
 package hashtree
 
 import (
+	"fmt"
+	"math"
+	"math/rand"
 	"reflect"
+	"runtime"
+	"runtime/metrics"
+	"sync"
 	"testing"
 )
 
@@ -288,4 +294,120 @@ func BenchmarkHashList(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Hash(digests, balances)
 	}
+}
+
+func TestHashChunkedBoundary(t *testing.T) {
+	counts := []int{
+		2,
+		maxAsmChunks - 2, maxAsmChunks, maxAsmChunks + 2,
+		2*maxAsmChunks - 2, 2 * maxAsmChunks, 2*maxAsmChunks + 2,
+		3*maxAsmChunks + 2,
+	}
+	rng := rand.New(rand.NewSource(1))
+	for _, count := range counts {
+		t.Run(fmt.Sprintf("%d chunks", count), func(t *testing.T) {
+			chunks := make([][32]byte, count)
+			for i := range chunks {
+				rng.Read(chunks[i][:])
+			}
+			digests := make([][32]byte, count/2)
+			if err := Hash(digests, chunks); err != nil {
+				t.Fatal(err)
+			}
+			expected := make([][32]byte, count/2)
+			sha256_1_generic(expected, chunks)
+			if !reflect.DeepEqual(digests, expected) {
+				for i := range expected {
+					if digests[i] != expected[i] {
+						t.Fatalf("digest %d differs\n Expected: %x\n Produced: %x", i, expected[i], digests[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+// Hash rejects odd counts, so hashChunked is called directly.
+func TestHashChunkedOddTail(t *testing.T) {
+	if !supportedCPU {
+		t.Skip("hashChunked requires assembly support")
+	}
+	for _, count := range []int{maxAsmChunks + 1, 2*maxAsmChunks + 1} {
+		t.Run(fmt.Sprintf("%d chunks", count), func(t *testing.T) {
+			chunks := make([][32]byte, count)
+			for i := range chunks {
+				chunks[i][0] = byte(i)
+				chunks[i][31] = byte(i >> 8)
+			}
+			digests := make([][32]byte, count/2)
+			hashChunked(digests, chunks)
+			expected := make([][32]byte, count/2)
+			sha256_1_generic(expected, chunks[:count-1])
+			if !reflect.DeepEqual(digests, expected) {
+				t.Fatal("hashChunked() != sha256_1_generic()")
+			}
+		})
+	}
+}
+
+// Needs GOMAXPROCS>=2. ns/op is not a throughput figure: the GC loop shares the CPUs.
+func BenchmarkSTW(b *testing.B) {
+	sample := []metrics.Sample{{Name: "/sched/pauses/stopping/gc:seconds"}}
+	metrics.Read(sample)
+	if sample[0].Value.Kind() != metrics.KindFloat64Histogram {
+		b.Skipf("this Go runtime has no %s metric", sample[0].Name)
+	}
+
+	const chunks = 1 << 21
+	in := make([][32]byte, chunks)
+	for i := range in {
+		in[i][0] = byte(i)
+		in[i][31] = byte(i >> 8)
+	}
+	out := make([][32]byte, chunks/2)
+
+	metrics.Read(sample)
+	before := append([]uint64(nil), sample[0].Value.Float64Histogram().Counts...)
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			runtime.GC()
+		}
+	}()
+
+	b.ResetTimer()
+	var err error
+	for i := 0; i < b.N && err == nil; i++ {
+		err = Hash(out, in)
+	}
+	b.StopTimer()
+	close(stop)
+	wg.Wait()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	metrics.Read(sample)
+	h := sample[0].Value.Float64Histogram()
+	worst := 0.0
+	for i, c := range h.Counts {
+		if c <= before[i] {
+			continue
+		}
+		if upper := h.Buckets[i+1]; !math.IsInf(upper, 1) {
+			worst = upper
+		} else {
+			worst = h.Buckets[i]
+		}
+	}
+	b.ReportMetric(worst, "worstpause-sec")
 }
