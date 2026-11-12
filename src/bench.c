@@ -28,6 +28,40 @@ SOFTWARE.
 
 #include "hashtree.h"
 #include "ubench.h"
+
+#ifdef __riscv
+#include <sys/syscall.h>
+#include <unistd.h>
+
+/* riscv_hwprobe(2), Linux 6.4+. These are the bits hashtree_detect() checks. */
+#ifndef __NR_riscv_hwprobe
+#define __NR_riscv_hwprobe 258
+#endif
+#define RISCV_HWPROBE_KEY_IMA_EXT_0 4
+#define RISCV_HWPROBE_EXT_ZBB (1ULL << 4)
+#define RISCV_HWPROBE_EXT_ZBKB (1ULL << 8)
+#define RISCV_HWPROBE_EXT_ZKNH (1ULL << 13)
+
+/* Extension bitmap of the CPU, or 0 if the kernel cannot report it. */
+static uint64_t riscv_extensions(void) {
+    struct {
+        int64_t key;
+        uint64_t value;
+    } pair = {.key = RISCV_HWPROBE_KEY_IMA_EXT_0};
+
+    if (syscall(__NR_riscv_hwprobe, &pair, 1, 0, NULL, 0) != 0) {
+        return 0;
+    }
+    return pair.value;
+}
+
+static int riscv_has_zbb(void) { return (riscv_extensions() & RISCV_HWPROBE_EXT_ZBB) != 0; }
+
+static int riscv_has_zknh(void) {
+    uint64_t ext = riscv_extensions();
+    return (ext & RISCV_HWPROBE_EXT_ZKNH) && (ext & RISCV_HWPROBE_EXT_ZBKB);
+}
+#endif
 #ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
 #endif
@@ -261,6 +295,9 @@ UBENCH_EX(riscv, riscv_x1) {
     free(digest);
 }
 UBENCH_EX(riscv, riscv_zbb_x1) {
+    if (!riscv_has_zbb()) {
+        return;
+    }
     int * buffer  = (int *) malloc(buffer_size);
     unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
     for (int i = 0; i < buffer_size/sizeof(int); i++) {
@@ -273,6 +310,9 @@ UBENCH_EX(riscv, riscv_zbb_x1) {
     free(digest);
 }
 UBENCH_EX(riscv, riscv_crypto) {
+    if (!riscv_has_zknh()) {
+        return;
+    }
     int * buffer  = (int *) malloc(buffer_size);
     unsigned char * digest = (unsigned char *) malloc(buffer_size/2);
     for (int i = 0; i < buffer_size/sizeof(int); i++) {

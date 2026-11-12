@@ -53,7 +53,7 @@ jobs:
         run: make all
       - name: Run tests with QEMU
         if: ${{ matrix.settings.qemu }}
-        run: ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./build/test
+        run: ${{ matrix.settings.qemu }} -cpu rva23s64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./build/test
       - name: Run tests
         if: ${{ !matrix.settings.qemu }}
         run: ./build/test
@@ -132,10 +132,49 @@ jobs:
         if: ${{ matrix.settings.qemu }}
         run: |
           CGO_ENABLED=1 CC=${{ matrix.settings.cc }} GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -o test.riscv64
-          ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./test.riscv64
+          ${{ matrix.settings.qemu }} -cpu rva23s64,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./test.riscv64
       - name: Run benchmarks
         if: ${{ !matrix.settings.qemu }}
         run: go test -bench=.
+
+  # No RISC-V CPU may hit an illegal instruction, whatever it supports. Ubuntu's
+  # own RISC-V libc needs RVA23, so the older CPUs are tested in a Debian
+  # container, whose userland runs on plain RV64GC.
+  riscv-cpus:
+    name: RISC-V - ${{ matrix.cpu.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cpu:
+          - name: no extensions
+            flags: rv64,zbb=false
+          - name: Zbb
+            flags: rv64,zbb=true
+          - name: Zbb and Zk
+            flags: rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Test library and Go bindings with QEMU
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w -v "$(go env GOROOT):/usr/local/go:ro" \
+            -e QEMU_CPU="${{ matrix.cpu.flags }}" debian:trixie bash -euc '
+              export DEBIAN_FRONTEND=noninteractive PATH=/usr/local/go/bin:$PATH
+              export CC=riscv64-linux-gnu-gcc GOFLAGS=-buildvcs=false GOTOOLCHAIN=local
+              apt-get update -qq
+              apt-get install -y -qq ca-certificates make binutils gcc-riscv64-linux-gnu qemu-user >/dev/null
+              make all
+              qemu-riscv64 -cpu "$QEMU_CPU" -L /usr/riscv64-linux-gnu ./build/test
+              make go_bindings
+              mv hashtree.syso hashtree_linux_riscv64.syso
+              CGO_ENABLED=1 GOOS=linux GOARCH=riscv64 go test -c -o test.riscv64
+              qemu-riscv64 -cpu "$QEMU_CPU" -L /usr/riscv64-linux-gnu ./test.riscv64
+            '
 
   rust-bindings:
     name: Rust Bindings - ${{ matrix.settings.name }}
