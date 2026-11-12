@@ -35,6 +35,40 @@
 #include "acutest.h"
 #include "hashtree.h"
 
+#ifdef __riscv
+#include <sys/syscall.h>
+#include <unistd.h>
+
+/* riscv_hwprobe(2), Linux 6.4+. These are the bits hashtree_detect() checks. */
+#ifndef __NR_riscv_hwprobe
+#define __NR_riscv_hwprobe 258
+#endif
+#define RISCV_HWPROBE_KEY_IMA_EXT_0 4
+#define RISCV_HWPROBE_EXT_ZBB (1ULL << 4)
+#define RISCV_HWPROBE_EXT_ZBKB (1ULL << 8)
+#define RISCV_HWPROBE_EXT_ZKNH (1ULL << 13)
+
+/* Extension bitmap of the CPU, or 0 if the kernel cannot report it. */
+static uint64_t riscv_extensions(void) {
+    struct {
+        int64_t key;
+        uint64_t value;
+    } pair = {.key = RISCV_HWPROBE_KEY_IMA_EXT_0};
+
+    if (syscall(__NR_riscv_hwprobe, &pair, 1, 0, NULL, 0) != 0) {
+        return 0;
+    }
+    return pair.value;
+}
+
+static int riscv_has_zbb(void) { return (riscv_extensions() & RISCV_HWPROBE_EXT_ZBB) != 0; }
+
+static int riscv_has_zknh(void) {
+    uint64_t ext = riscv_extensions();
+    return (ext & RISCV_HWPROBE_EXT_ZKNH) && (ext & RISCV_HWPROBE_EXT_ZBKB);
+}
+#endif
+
 #ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
 #endif
@@ -529,6 +563,10 @@ void test_hash_riscv_x1_multiple_blocks() {
     TEST_DUMP("Produced: ", digest, sizeof(digest));
 }
 void test_hash_riscv_zbb_x1_one_block() {
+    if (!riscv_has_zbb()) {
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support Zbb ]\n");
+        return;
+    }
     unsigned char digest[32];
 
     hashtree_sha256_riscv_zbb_x1(digest, test_16_block, 1);
@@ -539,6 +577,10 @@ void test_hash_riscv_zbb_x1_one_block() {
 }
 
 void test_hash_riscv_zbb_x1_multiple_blocks() {
+    if (!riscv_has_zbb()) {
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support Zbb ]\n");
+        return;
+    }
     unsigned char digest[128];
 
     hashtree_sha256_riscv_zbb_x1(digest, test_16_block, 4);
@@ -552,6 +594,10 @@ void test_hash_riscv_zbb_x1_multiple_blocks() {
     TEST_DUMP("Produced: ", digest, sizeof(digest));
 }
 void test_hash_riscv_crypto_one_block() {
+    if (!riscv_has_zknh()) {
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support Zknh+Zbkb ]\n");
+        return;
+    }
     unsigned char digest[32];
 
     hashtree_sha256_riscv_crypto(digest, test_16_block, 1);
@@ -562,6 +608,10 @@ void test_hash_riscv_crypto_one_block() {
 }
 
 void test_hash_riscv_crypto_multiple_blocks() {
+    if (!riscv_has_zknh()) {
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support Zknh+Zbkb ]\n");
+        return;
+    }
     unsigned char digest[128];
 
     hashtree_sha256_riscv_crypto(digest, test_16_block, 4);
