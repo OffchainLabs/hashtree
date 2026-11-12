@@ -10,7 +10,9 @@ TEXT ·HashtreeHash(SB), 0, $2048-24
 		    MOVBU ·hasShani(SB), check_shani
 		    CBNZ  check_shani, shani
 
+		    ADD  $2048, RSP, RSP
 		    BL hashtree_sha256_neon_x4(SB)
+		    SUB  $2048, RSP, RSP
 		    RET
 
 shani:
