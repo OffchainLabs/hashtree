@@ -99,6 +99,21 @@ jobs:
             cc: riscv64-linux-gnu-gcc
             qemu: qemu-riscv64
             goarch: riscv64
+            cross_pkg: gcc-riscv64-linux-gnu
+            syso_name: hashtree_linux_riscv64.syso
+            qemu_cpu: rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true
+            qemu_ld: /usr/riscv64-linux-gnu
+          - name: Linux arm64 NEON (QEMU)
+            target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            cc: aarch64-linux-gnu-gcc
+            qemu: qemu-aarch64
+            goarch: arm64
+            cross_pkg: gcc-aarch64-linux-gnu
+            syso_name: hashtree_linux_arm64.syso
+            qemu_cpu: cortex-a72
+            qemu_ld: /usr/aarch64-linux-gnu
+            test_tags: neonforce
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,11 +121,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Install RISC-V toolchain and QEMU
+      - name: Install cross toolchain and QEMU
         if: ${{ matrix.settings.qemu }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
+          sudo apt-get install -y ${{ matrix.settings.cross_pkg }} qemu-user
       - name: Cross-Compile Build
         if: ${{ matrix.settings.cc != '' && !matrix.settings.qemu }}
         run: CC=${{ matrix.settings.cc }} make go_bindings
@@ -120,19 +135,19 @@ jobs:
       - name: Build (generic only)
         if: ${{ matrix.settings.generic_only }}
         run: go build .
-      - name: Cross-Compile Build for RISC-V
+      - name: Cross-Compile Build (QEMU)
         if: ${{ matrix.settings.qemu }}
         run: |
           CC=${{ matrix.settings.cc }} make go_bindings
-          mv hashtree.syso hashtree_linux_riscv64.syso
+          mv hashtree.syso ${{ matrix.settings.syso_name }}
       - name: Run tests
         if: ${{ !matrix.settings.qemu }}
         run: go test .
       - name: Run tests with QEMU
         if: ${{ matrix.settings.qemu }}
         run: |
-          CGO_ENABLED=1 CC=${{ matrix.settings.cc }} GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -o test.riscv64
-          ${{ matrix.settings.qemu }} -cpu rv64,zbb=true,zbc=true,zbkb=true,zbkc=true,zbkx=true,zknd=true,zkne=true,zknh=true,zkt=true -L /usr/riscv64-linux-gnu ./test.riscv64
+          CGO_ENABLED=1 CC=${{ matrix.settings.cc }} GOOS=linux GOARCH=${{ matrix.settings.goarch }} go test -c -tags "${{ matrix.settings.test_tags }}" -o test.bin
+          ${{ matrix.settings.qemu }} -cpu ${{ matrix.settings.qemu_cpu }} -L ${{ matrix.settings.qemu_ld }} ./test.bin
       - name: Run benchmarks
         if: ${{ !matrix.settings.qemu }}
         run: go test -bench=.
