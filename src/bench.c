@@ -133,6 +133,27 @@ UBENCH_EX(generic, generic) {
 }
 
 #ifdef __x86_64__
+/* The kernels are benchmarked directly, so repeat the checks of
+ * hashtree_detect(): AVX/AVX-512 need the OS to have enabled the YMM/ZMM
+ * state, and avx512_x16 also needs AVX512BW and AVX2. */
+static uint64_t x86_xcr0() {
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    uint32_t eax, edx;
+    __get_cpuid_count(1, 0, &a, &b, &c, &d);
+    if (!(c & bit_OSXSAVE)) {
+        return 0;
+    }
+    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
+    return ((uint64_t)edx << 32) | eax;
+}
+
+static int x86_avx_ok() { return (x86_xcr0() & 0x6) == 0x6; }
+
+static int x86_avx512_ok(uint32_t b) {
+    return (b & bit_AVX512F) && (b & bit_AVX512VL) && (b & bit_AVX512BW) && (b & bit_AVX2) &&
+           (x86_xcr0() & 0xE0) == 0xE0;
+}
+
 UBENCH_EX(sse, sse_x1_one_at_time) {
     int *buffer = (int *)malloc(buffer_size);
     unsigned char digest[32];
@@ -161,7 +182,7 @@ UBENCH_EX(sse, sse_x1) {
 UBENCH_EX(avx, avx_x1_one_at_time) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (!(c & bit_AVX)) {
+    if (!(c & bit_AVX) || !x86_avx_ok()) {
         return;
     }
     int *buffer = (int *)malloc(buffer_size);
@@ -180,7 +201,7 @@ UBENCH_EX(avx, avx_x1_one_at_time) {
 UBENCH_EX(avx, avx_x1) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (!(c & bit_AVX)) {
+    if (!(c & bit_AVX) || !x86_avx_ok()) {
         return;
     }
 
@@ -197,7 +218,7 @@ UBENCH_EX(avx, avx_x1) {
 UBENCH_EX(avx, avx_x4) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (!(c & bit_AVX)) {
+    if (!(c & bit_AVX) || !x86_avx_ok()) {
         return;
     }
 
@@ -214,7 +235,7 @@ UBENCH_EX(avx, avx_x4) {
 UBENCH_EX(avx, avx_x8) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if (!(b & bit_AVX2)) {
+    if (!(b & bit_AVX2) || !x86_avx_ok()) {
         return;
     }
 
@@ -231,7 +252,7 @@ UBENCH_EX(avx, avx_x8) {
 UBENCH_EX(avx, avx_x16) {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if (!(b & bit_AVX512F) || !(b & bit_AVX512VL)) {
+    if (!x86_avx512_ok(b)) {
         return;
     }
 

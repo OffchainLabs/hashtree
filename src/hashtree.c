@@ -71,28 +71,47 @@ static void init_and_hash(unsigned char *output, const unsigned char *input, uin
 
 static hashtree_hash_fcn hash_ptr = init_and_hash;
 
+#ifdef __x86_64__
+/* XGETBV is only valid when CPUID.1:ECX.OSXSAVE is set. */
+static uint64_t hashtree_xgetbv(uint32_t index) {
+    uint32_t eax, edx;
+    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(index));
+    return ((uint64_t)edx << 32) | eax;
+}
+#endif
+
 static hashtree_hash_fcn hashtree_detect() {
 #ifdef __x86_64__
     uint32_t a = 0, b = 0, c = 0, d = 0;
-    __get_cpuid_count(7, 0, &a, &b, &c, &d);
+    uint32_t c1 = 0;
+    uint64_t xcr0 = 0;
+    __get_cpuid_count(1, 0, &a, &b, &c1, &d);
+    if (c1 & bit_OSXSAVE) {
+        xcr0 = hashtree_xgetbv(0);
+    }
+    /* XCR0: YMM = bits 1-2, ZMM/opmask = bits 5-7. */
+    const int ymm_ok = (xcr0 & 0x6) == 0x6;
+    const int zmm_ok = ymm_ok && (xcr0 & 0xE0) == 0xE0;
 
+    __get_cpuid_count(7, 0, &a, &b, &c, &d);
     if (b & bit_SHA) {
         /* Although AVX512 may be faster for full 16-block hashes, SHANI
         outperforms it significantly on smaller lists - thus, avoid pathological
         behavior. */
         return &hashtree_sha256_shani_x2;
     }
-    if ((b & bit_AVX512F) && (b & bit_AVX512VL)) {
+    /* avx512_x16 needs AVX512BW and tail-jumps to avx2_x8. */
+    if ((b & bit_AVX512F) && (b & bit_AVX512VL) && (b & bit_AVX512BW) &&
+        (b & bit_AVX2) && zmm_ok) {
         return &hashtree_sha256_avx512_x16;
     }
-    if (b & bit_AVX2) {
+    if ((b & bit_AVX2) && ymm_ok) {
         return &hashtree_sha256_avx2_x8;
     }
-    __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (c & bit_AVX) {
+    if ((c1 & bit_AVX) && ymm_ok) {
         return &hashtree_sha256_avx_x4;
     }
-    if (c & bit_SSSE3) {
+    if (c1 & bit_SSSE3) {
         return &hashtree_sha256_sse_x1;
     }
 #endif
@@ -145,6 +164,14 @@ void hashtree_init(hashtree_hash_fcn override) {
 }
 
 void hashtree_hash(unsigned char *output, const unsigned char *input, uint64_t count) {
+#ifdef __riscv
+    /* riscv kernels use 32-bit loads/stores on caller buffers; misaligned
+     * buffers trap in the kernel (SIGBUS with PR_UNALIGN_SIGBUS). */
+    if (((uintptr_t)output | (uintptr_t)input) & 3u) {
+        hashtree_sha256_generic(output, input, count);
+        return;
+    }
+#endif
     (*hash_ptr)(output, input, count);
 }
 
