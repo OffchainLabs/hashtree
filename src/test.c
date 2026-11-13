@@ -366,6 +366,27 @@ void test_hash_generic() {
 }
 
 #ifdef __x86_64__
+/* These tests call the kernels directly, so repeat the checks of
+ * hashtree_detect(): AVX/AVX-512 need the OS to have enabled the YMM/ZMM
+ * state, and avx512_x16 also needs AVX512BW and AVX2. */
+static uint64_t x86_xcr0() {
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    uint32_t eax, edx;
+    __get_cpuid_count(1, 0, &a, &b, &c, &d);
+    if (!(c & bit_OSXSAVE)) {
+        return 0;
+    }
+    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
+    return ((uint64_t)edx << 32) | eax;
+}
+
+static int x86_avx_ok() { return (x86_xcr0() & 0x6) == 0x6; }
+
+static int x86_avx512_ok(uint32_t b) {
+    return (b & bit_AVX512F) && (b & bit_AVX512VL) && (b & bit_AVX512BW) && (b & bit_AVX2) &&
+           (x86_xcr0() & 0xE0) == 0xE0;
+}
+
 void test_hash_sse_1() {
     unsigned char digest[32];
     hashtree_sha256_sse_x1(digest, test_16_block, 1);
@@ -382,7 +403,7 @@ void test_hash_sse_x1_multiple_blocks() {
 void test_hash_avx_1() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (c & bit_AVX) {
+    if ((c & bit_AVX) && x86_avx_ok()) {
         unsigned char digest[32];
         hashtree_sha256_avx_x1(digest, test_16_block, 1);
         TEST_ASSERT(sizeof(digest) == sizeof(test_1_digest));
@@ -395,7 +416,7 @@ void test_hash_avx_1() {
 void test_hash_avx_x1_multiple_blocks() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (c & bit_AVX) {
+    if ((c & bit_AVX) && x86_avx_ok()) {
         unsigned char digest[256];
         hashtree_sha256_avx_x1(digest, test_16_block, 8);
         TEST_ASSERT(digests_equal(digest, test_16_digests, sizeof(digest)));
@@ -407,7 +428,7 @@ void test_hash_avx_x1_multiple_blocks() {
 void test_hash_avx_4() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (c & bit_AVX) {
+    if ((c & bit_AVX) && x86_avx_ok()) {
         unsigned char digest[256];
         hashtree_sha256_avx_x4(digest, test_16_block, 8);
 
@@ -422,7 +443,7 @@ void test_hash_avx_4() {
 void test_hash_avx_4_6_blocks() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(1, 0, &a, &b, &c, &d);
-    if (c & bit_AVX) {
+    if ((c & bit_AVX) && x86_avx_ok()) {
         unsigned char digest[192];
         hashtree_sha256_avx_x4(digest, test_16_block, 6);
 
@@ -437,7 +458,7 @@ void test_hash_avx_4_6_blocks() {
 void test_hash_avx_8() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if (b & bit_AVX2) {
+    if ((b & bit_AVX2) && x86_avx_ok()) {
         unsigned char digest[512];
         hashtree_sha256_avx2_x8(digest, test_16_block, 16);
         TEST_CHECK(digests_equal(digest, test_16_digests, sizeof(digest)));
@@ -451,7 +472,7 @@ void test_hash_avx_8() {
 void test_hash_avx_8_13_blocks() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if (b & bit_AVX2) {
+    if ((b & bit_AVX2) && x86_avx_ok()) {
         unsigned char digest[416];
         hashtree_sha256_avx2_x8(digest, test_16_block, 13);
 
@@ -495,21 +516,21 @@ void test_hash_shani_13_blocks() {
 void test_hash_avx_16() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if ((b & bit_AVX512F) && (b & bit_AVX512VL)) {
+    if (x86_avx512_ok(b)) {
         unsigned char digest[1024];
         hashtree_sha256_avx512_x16(digest, test_32_block, 32);
         TEST_CHECK(digests_equal(digest, test_32_digests, sizeof(digest)));
         TEST_DUMP("Expected: ", test_32_digests, sizeof(digest));
         TEST_DUMP("Produced: ", digest, sizeof(digest));
     } else {
-        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support AVX-512F+AVX-512VL ]\n");
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support the AVX-512 x16 kernel ]\n");
     }
 }
 
 void test_hash_avx512_30_blocks() {
     uint32_t a = 0, b = 0, c = 0, d = 0;
     __get_cpuid_count(7, 0, &a, &b, &c, &d);
-    if ((b & bit_AVX512F) && (b & bit_AVX512VL)) {
+    if (x86_avx512_ok(b)) {
         unsigned char digest[960];
         hashtree_sha256_avx512_x16(digest, test_32_block, 30);
 
@@ -517,7 +538,7 @@ void test_hash_avx512_30_blocks() {
         TEST_DUMP("Expected: ", test_32_digests, sizeof(digest));
         TEST_DUMP("Produced: ", digest, sizeof(digest));
     } else {
-        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support AVX-512F+AVX-512VL ]\n");
+        acutest_colored_printf_(ACUTEST_COLOR_GREEN_INTENSIVE_, "[ CPU does not support the AVX-512 x16 kernel ]\n");
     }
 }
 
