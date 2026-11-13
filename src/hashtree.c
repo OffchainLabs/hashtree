@@ -145,6 +145,14 @@ void hashtree_init(hashtree_hash_fcn override) {
 }
 
 void hashtree_hash(unsigned char *output, const unsigned char *input, uint64_t count) {
+#ifdef __riscv
+    /* riscv kernels use 32-bit loads/stores on caller buffers; misaligned
+     * buffers trap in the kernel (SIGBUS with PR_UNALIGN_SIGBUS). */
+    if (((uintptr_t)output | (uintptr_t)input) & 3u) {
+        hashtree_sha256_generic(output, input, count);
+        return;
+    }
+#endif
     (*hash_ptr)(output, input, count);
 }
 
